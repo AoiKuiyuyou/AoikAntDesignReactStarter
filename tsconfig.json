@@ -1,0 +1,40 @@
+{
+  "": "# ------ 5H8S1 ------",
+  "compilerOptions": {
+    "outDir": "build/output",
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "lib": ["esnext", "dom"],
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "suppressImplicitAnyIndexErrors": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@@/*": ["./src/.umi/*"]
+    },
+    "pretty": true
+  },
+  "include": [
+    "config/**/*",
+    "mock/**/*",
+    "src/**/*",
+    ".eslintrc.js",
+    ".stylelintrc.js"
+  ],
+  "exclude": [
+    "build",
+    "dist",
+    "node_modules",
+    "src/.umi/**/*"
+  ]
+}

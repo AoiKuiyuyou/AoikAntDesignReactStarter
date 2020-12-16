@@ -1,0 +1,84 @@
+// ------ 6D5T4 ------
+
+// -----
+@import '~antd/es/style/themes/default.less';
+// ----- 3I7W4 -----
+@import '~toastr/build/toastr.min.css';
+
+
+// -----
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.colorWeak {
+  filter: invert(80%);
+}
+
+.ant-layout {
+  min-height: 100vh;
+  background-color: #FFFFFF;
+}
+
+canvas {
+  display: block;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+@media (max-width: @screen-xs) {
+  .ant-table {
+    width: 100%;
+    overflow-x: auto;
+    &-thead > tr,
+    &-tbody > tr {
+      > th,
+      > td {
+        white-space: pre;
+        > span {
+          display: block;
+        }
+      }
+    }
+  }
+}
+
+// IE 11
+@media screen and(-ms-high-contrast: active), (-ms-high-contrast: none) {
+  body .ant-design-pro > .ant-layout {
+    min-height: 100vh;
+  }
+}
+
+
+// ----- Page Header -----
+.ant-pro-global-header-layout-mix {
+  background-color: #FFFFFF;
+
+  // System name in the top-left corner.
+  .ant-pro-global-header-logo h1 {
+    color: #000000;
+  }
+
+  // User name in the top-right corner.
+  .anticon {
+    color: #000000;
+  }
+}
+
+
+// ----- Page Footer -----
+.ant-layout-footer {
+  background-color: #FFFFFF;
+}

@@ -1,0 +1,18 @@
+# ------ 1B7X6 ------
+
+# -----
+/*
+!/config/
+!/mock/
+!/public/
+!/src/
+!/.eslintrc.js
+!/.gitignore
+!/.stylelintrc.js
+!/jsconfig.json
+!/LICENSE.txt
+!/package.json
+!/README.md
+!/README.src.md
+!/tsconfig.json
+/src/.umi/
