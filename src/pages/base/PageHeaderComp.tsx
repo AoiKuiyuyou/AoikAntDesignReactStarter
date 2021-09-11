@@ -1,4 +1,5 @@
-// ------ 8Y5G6 ------
+// +++++ 8Y5G6 +++++
+
 
 // -----
 import { Space } from 'antd';
@@ -21,8 +22,8 @@ import { gotoPath } from '@/base/cli';
 import { ApiPath } from '@/config/api_config';
 import { CliPath } from '@/config/cli_config';
 import { InitialStateModelType } from '@/config/umi_config';
-import { ApiUserLogoutReqInfoType } from '@/pages/user/login/UserLoginComp';
-import { ApiUserLogoutResInfoType } from '@/pages/user/login/UserLoginComp';
+import { ApiUserLogoutRepBody } from '@/pages/user/login/api';
+import { ApiUserLogoutReqBody } from '@/pages/user/login/api';
 
 import styles from './PageHeaderComp.less';
 
@@ -68,7 +69,7 @@ const DropdownComp: React.FC<DropdownCompProps> = ({
 };
 
 
-// ------ 1Z3A5 ------
+// ----- 1Z3A5 -----
 const PageHeaderComp: React.FC = () => {
   //
   enum MenuKey {
@@ -118,16 +119,21 @@ const PageHeaderComp: React.FC = () => {
           });
 
           //
-          await callApi<ApiUserLogoutReqInfoType, ApiUserLogoutResInfoType>({
-            uri: ApiPath.API_USER_LOGOUT,
-            body: {
-              cliLoc: '3I5M8',
-              apiLoc: '8C7I9',
-            },
-            getIsMounted,
-            getCallCount,
-            setCallCount,
-          });
+          await callApi<
+            ApiUserLogoutReqBody,
+            ApiUserLogoutRepBody>({
+              uri: ApiPath.API_USER_LOGOUT,
+              body: {
+                base: {
+                  cliLoc: '3I5M8',
+                  apiLoc: '8C7I9',
+                },
+                biz: {},
+              },
+              getIsMounted,
+              getCallCount,
+              setCallCount,
+            });
 
           //
           if (history.location.pathname !== CliPath.USER_LOGIN) {
@@ -143,12 +149,12 @@ const PageHeaderComp: React.FC = () => {
   );
 
   //
-  if (!initialState || !initialState.currUser) {
+  if (!initialState || !initialState.authInfo) {
     return LoadingComp({});
   }
 
   //
-  const { currUser } = initialState;
+  const authInfo = initialState.authInfo;
 
   //
   const menuComp = (
@@ -164,7 +170,7 @@ const PageHeaderComp: React.FC = () => {
       <DropdownComp overlay={menuComp}>
         <span className={`${styles.action} ${styles.account}`}>
           <Avatar size="small" className={styles.avatar} alt="avatar" />
-          <span className="anticon">{currUser.name}</span>
+          <span className="anticon">{authInfo.username}</span>
         </span>
       </DropdownComp>
     </Space>

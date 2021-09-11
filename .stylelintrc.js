@@ -1,4 +1,5 @@
-// ------ 2T7Z5 -----
+// +++++ 2T7Z5 +++++
+
 
 // -----
 const fabric = require('@umijs/fabric');

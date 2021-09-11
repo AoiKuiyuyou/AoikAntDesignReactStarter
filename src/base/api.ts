@@ -1,6 +1,9 @@
-// ------ 4W9D5 ------
+// +++++ 4W9D5 +++++
+
 
 // -----
+import 'abortcontroller-polyfill/dist/polyfill-patch-fetch';
+
 import moment from 'moment';
 
 // Must use relative path. `@/` will cause import error.
@@ -12,7 +15,7 @@ import { Toast } from './toast';
 
 
 // -----
-enum ApiResStatus {
+export enum ApiResStatus {
   HTTP_200_BIZ_SUCC = 200,
   HTTP_299_BIZ_FAIL = 299,
   HTTP_300 = 300,
@@ -37,7 +40,7 @@ enum ApiResStatus {
 
 
 // -----
-enum ApiResCode {
+export enum ApiResCode {
   BIZ_SUCC = 'BIZ_SUCC',
   BIZ_FAIL = 'BIZ_FAIL',
   ARG_ERR = 'ARG_ERR',
@@ -47,10 +50,12 @@ enum ApiResCode {
 
 
 // -----
-enum ApiResMsg {
+export enum ApiResMsg {
   // ----- Base -----
-  BIZ_SUCC = 'Operation success.',
-  BIZ_FAIL = 'Operation failure',
+  SUCCESS = 'Success',
+  FAILURE = 'Failure',
+  ERROR = 'Error',
+  NET_REQ_ERR = 'Network request error',
   ARG_ERR = 'Argument error',
   ARG_PARSE_ERR = 'Argument parse error',
   AUTHEN_ERR = 'Authentication error',
@@ -59,11 +64,11 @@ enum ApiResMsg {
   METHOD_ERR = 'Request method error',
   ACCEPT_ERR = 'Request condition error',
   PROXY_AUTH_ERR = 'Proxy authentication error',
+  PROTO_VERSION_ERR = 'Protocol version error',
   FREQ_ERR = 'Operation too frequent. Please try later.',
   EXC_ERR = 'Backend exception error',
   IMP_ERR = 'Backend implementation error',
-  BACKEND_UNRESP_ERR = 'Backend unresponsive. Please try later.',
-  PROTO_VERSION_ERR = 'Protocol version error',
+  UNRESP_ERR = 'Backend unresponsive. Please try later.',
   UNKNOWN_2XX_ERR = 'Unknown business status code',
   UNKNOWN_3XX_ERR = 'Unknown redirect status code',
   UNKNOWN_4XX_ERR = 'Unknown argument, authentication, or authorization error',
@@ -71,6 +76,7 @@ enum ApiResMsg {
   UNKNOWN_OTHER_ERR = 'Unknown other status code',
   PAGE_EXPIRED_ERR = 'Page might be expired.'
     + 'Please press `Ctrl+F5` or swipe down the phone screen to refresh the page.',
+  ERR_LOC_POSTFIX = 'Location:',
 
   // ----- Login -----
   LOGIN_SUCC = 'Login success',
@@ -80,53 +86,73 @@ enum ApiResMsg {
 
 
 // -----
-enum ApiResDebugMsg {
+export function makeToastMsg(
+  loc: string,
+  msg: string,
+  addLocToMsg: boolean,
+): string {
+  if (!msg.endsWith('.')) {
+    // eslint-disable-next-line no-param-reassign
+    msg += '.';
+  }
+
+  const locStr = loc.replace('/', '<br/>/');
+
+  const toastMsg = addLocToMsg ?
+    `${msg}<br/><br/>${ApiResMsg.ERR_LOC_POSTFIX}<br/>${locStr}` : msg;
+
+  return toastMsg;
+}
+
+
+// -----
+export enum ApiResDebugMsg {
   EMPTY = '',
 }
 
 
 // -----
-interface ApiReqInfoType {
-  apiLoc: string;
+export interface ApiReqBody {
+  base: {
+    apiLoc: string;
 
-  cliLoc: string;
+    cliLoc: string;
 
-  // Added by `callApi` at 1U3M4.
-  apiVer?: string;
+    // Added by `callApi` at 1U3M4.
+    apiVer?: string;
 
-  // Added by `callApi` at 2C1P5.
-  cliTime?: string;
+    // Added by `callApi` at 2C1P5.
+    cliTime?: string;
+  }
 }
 
 
 // -----
-interface ApiResInfoType {
-  loc: string;
+export interface ApiRepBody {
+  base: {
+    loc: string;
 
-  status: bigint;
+    status: number;
 
-  code: string;
+    code: string;
 
-  msg: string;
-
-  debugMsg: string;
-
-  data: object;
+    msg: string;
+  },
 }
 
 
 // -----
-function getHttpStatusMsg(status: number | null) {
+export function getHttpStatusMsg(status: number | null) {
   if (typeof status !== 'number') {
     return `No status code.${EnvConfig.DEV_ON ? ` (${status})` : ''}`;
   }
 
   if (status === ApiResStatus.HTTP_200_BIZ_SUCC) {
-    return ApiResMsg.BIZ_SUCC;
+    return ApiResMsg.SUCCESS;
   }
 
   if (status === ApiResStatus.HTTP_299_BIZ_FAIL) {
-    return ApiResMsg.BIZ_FAIL;
+    return ApiResMsg.FAILURE;
   }
 
   if (status > ApiResStatus.HTTP_200_BIZ_SUCC && status < ApiResStatus.HTTP_299_BIZ_FAIL) {
@@ -181,10 +207,14 @@ function getHttpStatusMsg(status: number | null) {
     return ApiResMsg.IMP_ERR;
   }
 
-  if (status === ApiResStatus.HTTP_502_GATEWAY_ERR
-    || status === ApiResStatus.HTTP_503_OVERLOAD_ERR
-    || status === ApiResStatus.HTTP_504_TIMEOUT_ERR) {
-    return ApiResMsg.BACKEND_UNRESP_ERR;
+  if (
+    status === ApiResStatus.HTTP_502_GATEWAY_ERR
+    ||
+    status === ApiResStatus.HTTP_503_OVERLOAD_ERR
+    ||
+    status === ApiResStatus.HTTP_504_TIMEOUT_ERR
+  ) {
+    return ApiResMsg.UNRESP_ERR;
   }
 
   if (status === ApiResStatus.HTTP_505_VERSION_ERR) {
@@ -200,27 +230,25 @@ function getHttpStatusMsg(status: number | null) {
 
 
 //
-function getErrMsgShown<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
->(
-  resInfo: ResInfoType | null,
-  extInfo: CallApiExtInfoType<ReqInfoType, ResInfoType>,
+export function getErrMsgShown<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody>(
+  repInfo: RepBodyType | null,
+  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
 ) {
   //
-  const respStatus = extInfo.resp === null ? 0 : extInfo.resp.status;
+  const repStatus = extInfo.rep === null ? 0 : extInfo.rep.status;
 
   //
-  let respMsg: string;
+  let repMsg: string;
 
-  if (extInfo.resp === null) {
-    respMsg = 'Network request error';
+  if (extInfo.rep === null) {
+    repMsg = ApiResMsg.NET_REQ_ERR;
   }
-  else if (resInfo && resInfo.msg) {
-    respMsg = resInfo.msg;
+  else if (repInfo && repInfo.base && repInfo.base.msg) {
+    repMsg = repInfo.base.msg;
   }
   else {
-    respMsg = getHttpStatusMsg(respStatus);
+    repMsg = getHttpStatusMsg(repStatus);
   }
 
   //
@@ -235,20 +263,20 @@ function getErrMsgShown<
     errMsgShown = errMsgArg;
   }
   else if (typeof errMsgArg === 'function') {
-    errMsgShown = (errMsgArg as Function)(respStatus, respMsg);
+    errMsgShown = (errMsgArg as Function)(repStatus, repMsg);
   }
   else if (typeof errMsgArg === 'object') {
-    errMsgShown = (errMsgArg as object)[respStatus];
+    errMsgShown = (errMsgArg as object)[repStatus];
   }
   else {
-    errMsgShown = respMsg;
+    errMsgShown = repMsg;
   }
 
   if (!errMsgShown) {
-    errMsgShown = respMsg;
+    errMsgShown = repMsg;
 
     if (!errMsgShown) {
-      errMsgShown = 'Network request error';
+      errMsgShown = ApiResMsg.NET_REQ_ERR;
     }
   }
 
@@ -258,79 +286,124 @@ function getErrMsgShown<
 
 
 // -----
-const ABORT_CONTROLLERS: AbortController[] = [];
-
-
-// -----
-function addAbortController(abortController: AbortController) {
-  ABORT_CONTROLLERS.push(abortController);
+export interface AbortControllerWrapper {
+  controller: AbortController,
+  extInfo: any,
 }
 
 
 // -----
-function removeAbortController(abortController: AbortController) {
-  if (!ABORT_CONTROLLERS.length) {
+const ABORT_CONTROLLER_WRAPPERS: AbortControllerWrapper[] = [];
+
+
+// -----
+function addAbortControllerWrapper(wrapper: AbortControllerWrapper) {
+  ABORT_CONTROLLER_WRAPPERS.push(wrapper);
+}
+
+
+// -----
+function removeAbortControllerWrapper(wrapper: AbortControllerWrapper) {
+  if (!ABORT_CONTROLLER_WRAPPERS.length) {
     return;
   }
 
-  const index = ABORT_CONTROLLERS.findIndex(
-    (x) => {return x === abortController;},
+  const index = ABORT_CONTROLLER_WRAPPERS.findIndex(
+    (x) => {return x === wrapper;},
   );
 
   if (index >= 0) {
-    ABORT_CONTROLLERS.splice(index, 1);
+    ABORT_CONTROLLER_WRAPPERS.splice(index, 1);
   }
 }
 
 
 // -----
-function abortApiCalls() {
-  while (ABORT_CONTROLLERS.length) {
-    const abortController = ABORT_CONTROLLERS.pop();
+export function abortApiCalls() {
+  while (ABORT_CONTROLLER_WRAPPERS.length) {
+    const wrapper = ABORT_CONTROLLER_WRAPPERS.pop();
 
-    if (abortController !== undefined) {
-      abortController.abort();
+    if (wrapper !== undefined) {
+      wrapper.extInfo.isAborted = true;
+
+      wrapper.controller.abort();
     }
   }
 }
 
 
 // -----
-type CallApiResCallbackType<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType,
-  > = ((
-  resInfo: ResInfoType,
-  extInfo: CallApiExtInfoType<ReqInfoType, ResInfoType>,
-) => Promise<ResInfoType | null>);
+type HttpStatusHandler = (loc: string) => boolean;
 
 
 // -----
-type CallApiResCallbackPlusLocType<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
-> = CallApiResCallbackType<ReqInfoType, ResInfoType> &
-  {
-    // Added by `callApi` at 1T4N3.
-    aoikAntDesignReactStarterApiResCallbackLoc: string
-  };
+let HTTP_STATUS_HANDLERS: {
+  [key: number]: HttpStatusHandler,
+} = {};
 
 
 // -----
-function onSuccessDefault<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
->(
-  resInfo: ResInfoType,
-  extInfo: CallApiExtInfoType<ReqInfoType, ResInfoType>,
-): Promise<ResInfoType>
-{
-  const { loc } = resInfo;
+export function addHttpStatusHandler(
+  status: number,
+  handler: HttpStatusHandler,
+) {
+  HTTP_STATUS_HANDLERS[status] = handler;
+}
+
+
+// -----
+export function removeHttpStatusHandler(status: number) {
+  delete HTTP_STATUS_HANDLERS[status];
+}
+
+
+// -----
+export function clearHttpStatusHandlers() {
+  HTTP_STATUS_HANDLERS = {};
+}
+
+
+// -----
+type CallApiResCallbackType<ReqBodyType extends ApiReqBody,
+    RepBodyType extends ApiRepBody,
+    > = ((
+    repInfo: RepBodyType,
+    extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+) => Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]>);
+
+
+// -----
+export type CallApiResCallbackPlusLocType<ReqBodyType extends ApiReqBody,
+    RepBodyType extends ApiRepBody> = CallApiResCallbackType<ReqBodyType, RepBodyType> &
+    {
+      // Added by `callApi` at 1T4N3.
+      aoikAntDesignReactStarterApiResCallbackLoc: string
+    };
+
+// -----
+function onSuccessDummy<ReqBodyType extends ApiReqBody,
+    RepBodyType extends ApiRepBody>(
+  repInfo: RepBodyType,
+  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+  return Promise.resolve([repInfo, extInfo]);
+}
+
+onSuccessDummy.aoikAntDesignReactStarterApiResCallbackLoc = '3A5B7';
+
+
+// -----
+function onSuccessDefault<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody>(
+  repInfo: RepBodyType,
+  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+  const loc = repInfo.base?.loc;
 
   if (!loc) {
     throw makeError(
       '5T7C3',
-      'res_info_no_loc_err',
+      'rep_info_no_loc_err',
     );
   }
 
@@ -343,27 +416,36 @@ function onSuccessDefault<
     },
   );
 
-  return Promise.resolve(resInfo);
+  return Promise.resolve([repInfo, extInfo]);
 }
 
 onSuccessDefault.aoikAntDesignReactStarterApiResCallbackLoc = '6U8J3';
 
 
 // -----
-function onFailureDefault<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
->(
-  resInfo: ResInfoType,
-  extInfo: CallApiExtInfoType<ReqInfoType, ResInfoType>,
-): Promise<ResInfoType>
-{
-  const { loc } = resInfo;
+function onFailureDummy<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody>(
+  repInfo: RepBodyType,
+  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+  return Promise.resolve([repInfo, extInfo]);
+}
+
+onFailureDummy.aoikAntDesignReactStarterApiResCallbackLoc = '4M6D1';
+
+
+// -----
+function onFailureDefault<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody>(
+  repInfo: RepBodyType,
+  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+  const loc = repInfo.base?.loc;
 
   if (!loc) {
     throw makeError(
       '7C5S6',
-      'res_info_no_loc_err',
+      'rep_info_no_loc_err',
     );
   }
 
@@ -376,21 +458,30 @@ function onFailureDefault<
     },
   );
 
-  return Promise.resolve(resInfo);
+  return Promise.resolve([repInfo, extInfo]);
 }
 
 onFailureDefault.aoikAntDesignReactStarterApiResCallbackLoc = '8V3R4';
 
 
 // -----
-function onErrorDefault<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
->(
-  resInfo: ResInfoType,
-  extInfo: CallApiExtInfoType<ReqInfoType, ResInfoType>,
-): Promise<ResInfoType>
-{
+function onErrorDummy<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody>(
+  repInfo: RepBodyType,
+  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+  return Promise.resolve([repInfo, extInfo]);
+}
+
+onErrorDummy.aoikAntDesignReactStarterApiResCallbackLoc = '5S2R8';
+
+
+// -----
+function onErrorDefault<ReqBodyType extends ApiReqBody,
+    RepBodyType extends ApiRepBody>(
+  repInfo: RepBodyType,
+  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
   Toast.error(
     extInfo.msgShown,
     extInfo.msgTitle,
@@ -400,27 +491,24 @@ function onErrorDefault<
     },
   );
 
-  return Promise.resolve(resInfo);
+  return Promise.resolve([repInfo, extInfo]);
 }
 
 onErrorDefault.aoikAntDesignReactStarterApiResCallbackLoc = '9O2Z1';
 
 
 // -----
-const SAFE_FUNC_ERROR = {};
+export const SAFE_FUNC_ERROR = {};
 
 
 // -----
-function makeApiResCallback<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
->(
+export function makeApiResCallback<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody>(
   loc: string,
-  func: CallApiResCallbackType<ReqInfoType, ResInfoType>,
-): CallApiResCallbackPlusLocType<ReqInfoType, ResInfoType>
-{
+  func: CallApiResCallbackType<ReqBodyType, RepBodyType>,
+): CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> {
   //
-  const funcWithLoc = func as CallApiResCallbackPlusLocType<ReqInfoType, ResInfoType>;
+  const funcWithLoc = func as CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType>;
 
   // ----- 1T4N3 -----
   funcWithLoc.aoikAntDesignReactStarterApiResCallbackLoc = loc;
@@ -431,31 +519,29 @@ function makeApiResCallback<
 
 
 // -----
-type CallApiGetIsMountedType = () => boolean;
+export type CallApiGetIsMountedType = () => boolean;
 
-type CallApiGetCallCountType = () => number;
+export type CallApiGetCallCountType = () => number;
 
-type CallApiSetCallCountType = (count: number) => void;
+export type CallApiSetCallCountType = (count: number) => void;
 
 
 // -----
-interface CallApiFuncParamsType<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
-> {
+export interface CallApiFuncParamsType<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody> {
   uri: string;
 
   method?: string;
 
   headers?: object;
 
-  body: ReqInfoType;
+  body: ReqBodyType;
 
   getIsMounted: CallApiGetIsMountedType;
 
-  getCallCount: CallApiGetCallCountType;
+  getCallCount?: CallApiGetCallCountType;
 
-  setCallCount: CallApiSetCallCountType;
+  setCallCount?: CallApiSetCallCountType;
 
   ignoreCallCount?: boolean;
 
@@ -463,11 +549,11 @@ interface CallApiFuncParamsType<
 
   onEnd?: Function;
 
-  onSuccess?: CallApiResCallbackPlusLocType<ReqInfoType, ResInfoType>;
+  onSuccess?: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> | boolean;
 
-  onFailure?: CallApiResCallbackPlusLocType<ReqInfoType, ResInfoType>;
+  onFailure?: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> | boolean;
 
-  onError?: CallApiResCallbackPlusLocType<ReqInfoType, ResInfoType>;
+  onError?: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> | boolean;
 
   errMsg?: string | object | Function;
 
@@ -478,41 +564,64 @@ interface CallApiFuncParamsType<
 
 
 // -----
-interface CallApiExtInfoType<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
-> extends CallApiFuncParamsType<ReqInfoType, ResInfoType> {
-  resp: Response | null;
+export interface CallApiExtInfoType<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody> extends CallApiFuncParamsType<ReqBodyType, RepBodyType> {
+  rep: Response | null;
 
   msgTitle: string;
 
   msgShown: string;
+
+  isAborted: boolean;
+
+  isError: boolean;
+
+  isFailure: boolean;
+
+  isSuccess: boolean;
 }
 
 
 // -----
-async function callApi<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
->(
-  funcParams: CallApiFuncParamsType<ReqInfoType, ResInfoType>,
-): Promise<ResInfoType | null>
-{
-  let cliLoc = '';
+export async function callApi<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody>(
+  funcParams: CallApiFuncParamsType<ReqBodyType, RepBodyType>,
+): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+  //
+  let cliLoc = `*@${EnvConfig.APP_LOC}-6H7J3`;
 
+  //
+  const extInfo = { ...funcParams } as CallApiExtInfoType<ReqBodyType, RepBodyType>;
+
+  //
+  extInfo.isAborted = false;
+  extInfo.isError = false;
+  extInfo.isFailure = false;
+  extInfo.isSuccess = false;
+
+  //
   try {
     //
-    cliLoc = funcParams.body.cliLoc;
+    cliLoc = funcParams.body.base?.cliLoc;
 
     if (typeof cliLoc !== 'string' || !cliLoc || cliLoc.length !== 5) {
+      cliLoc = `*@${EnvConfig.APP_LOC}-#2F8Y3`;
+
       throw makeError(
-        '2F8Y3',
+        cliLoc,
         'invalid_cliloc_err',
       );
     }
 
+    if (!cliLoc.startsWith('*@')) {
+      cliLoc = `*@${EnvConfig.APP_LOC}-#${cliLoc}`;
+
+      // eslint-disable-next-line no-param-reassign
+      funcParams.body.base.cliLoc = cliLoc;
+    }
+
     //
-    const { apiLoc } = funcParams.body;
+    const { apiLoc } = funcParams.body.base;
 
     if (typeof apiLoc !== 'string' || !apiLoc || apiLoc.length !== 5) {
       throw makeError(
@@ -529,7 +638,7 @@ async function callApi<
         onStartRes = await onStartRes.catch(
           (err: any) => {
             handleError(
-              `${cliLoc}-8X1N2`,
+              `${cliLoc}+8X1N2`,
               err,
             );
 
@@ -539,27 +648,39 @@ async function callApi<
       }
 
       if (onStartRes === SAFE_FUNC_ERROR) {
-        return null;
+        return [null, extInfo];
       }
     }
 
     //
-    const callRes = callApiImp<ReqInfoType, ResInfoType>(funcParams);
+    const callRes = callApiImp<ReqBodyType, RepBodyType>(funcParams, extInfo);
 
     //
     if (!(callRes instanceof Promise) || funcParams.propErr) {
+      extInfo.isError = true;
+      extInfo.isFailure = false;
+      extInfo.isSuccess = false;
+
       return callRes;
     }
 
     //
     return callRes.catch(
       (err: any) => {
+        if (extInfo.isAborted) {
+          return [null, extInfo];
+        }
+        // ----- 4W7F9 -----
         handleError(
-          `${cliLoc}-4W7F9`,
+          `${cliLoc}+4W7F9`,
           err,
         );
 
-        return null;
+        extInfo.isError = true;
+        extInfo.isFailure = false;
+        extInfo.isSuccess = false;
+
+        return [null, extInfo];
       },
     );
   }
@@ -569,11 +690,15 @@ async function callApi<
     }
 
     handleError(
-      `${cliLoc ? `${cliLoc}-` : ''}5S6N8`,
+      `${cliLoc}-5S6N8`,
       err,
     );
 
-    return null;
+    extInfo.isError = true;
+    extInfo.isFailure = false;
+    extInfo.isSuccess = false;
+
+    return [null, extInfo];
   }
   finally {
     try {
@@ -581,22 +706,13 @@ async function callApi<
         const onEndRes = funcParams.onEnd();
 
         if (onEndRes instanceof Promise) {
-          await onEndRes.catch(
-            (err: any) => {
-              handleError(
-                `${cliLoc}-9D3B5`,
-                err,
-              );
-
-              return SAFE_FUNC_ERROR;
-            },
-          );
+          await onEndRes;
         }
       }
     }
-    catch(err: any) {
+    catch (err: any) {
       handleError(
-        `${cliLoc ? `${cliLoc}-` : ''}6V8Y5`,
+        `${cliLoc}-6V8Y5`,
         err,
       );
     }
@@ -605,40 +721,43 @@ async function callApi<
 
 
 // -----
-function callApiImp<
-  ReqInfoType extends ApiReqInfoType,
-  ResInfoType extends ApiResInfoType
->(
-  funcParams: CallApiFuncParamsType<ReqInfoType, ResInfoType>,
-): Promise<ResInfoType | null>
-{
+function callApiImp<ReqBodyType extends ApiReqBody,
+  RepBodyType extends ApiRepBody>(
+  funcParams: CallApiFuncParamsType<ReqBodyType, RepBodyType>,
+  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
   //
-  const extInfo = { ...funcParams } as CallApiExtInfoType<ReqInfoType, ResInfoType>;
+  let { cliLoc } = funcParams.body.base;
 
   //
-  const { cliLoc } = funcParams.body;
+  if (typeof cliLoc !== 'string') {
+    cliLoc = `*@${EnvConfig.APP_LOC}-7Y9T1`;
 
-  if (typeof cliLoc !== 'string' || !cliLoc || cliLoc.length !== 5) {
     throw makeError(
-      '7Y9T1',
+      cliLoc,
       'cliloc_arg_err',
     );
   }
 
+  //
   if (window.fetch === undefined || window.localStorage === undefined) {
-    const loc = `${cliLoc}-8T2K6`;
+    const fullLoc = `${cliLoc}+8T2K6`;
 
     if (funcParams.propErr) {
-      return Promise.reject(loc);
+      return Promise.reject(fullLoc);
     }
 
-    const errMsg = `Unsupported browser. <br/><br/>Loc: ${loc}`;
+    const errMsg = makeToastMsg(
+      fullLoc,
+      'Browser version is low, please upgrade.',
+      EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+    );
 
-    const errTitle = `Error${EnvConfig.DEV_ON ? ` (${loc})` : ''}`;
+    const errTitle = 'Browser version error';
 
     Toast.error(errMsg, errTitle);
 
-    return Promise.resolve(null);
+    return Promise.resolve([null, extInfo]);
   }
 
   //
@@ -659,35 +778,13 @@ function callApiImp<
   }
 
   //
-  const { getIsMounted } = extInfo;
+  const getIsMounted = extInfo.getIsMounted;
 
   //
   if (!(getIsMounted instanceof Function)) {
     throw makeError(
       '2F4V6',
       'getismounted_arg_err',
-    );
-  }
-
-  //
-  const { getCallCount } = extInfo;
-
-  //
-  if (!(getCallCount instanceof Function)) {
-    throw makeError(
-      '3U2Y6',
-      'getcallcount_arg_err',
-    );
-  }
-
-  //
-  const { setCallCount } = extInfo;
-
-  //
-  if (!(setCallCount instanceof Function)) {
-    throw makeError(
-      '4A9X8',
-      'setcallcount_arg_err',
     );
   }
 
@@ -699,30 +796,64 @@ function callApiImp<
   }
 
   //
+  const getCallCount = extInfo.getCallCount;
+
+  //
+  if (!ignoreCallCount && !(getCallCount instanceof Function)) {
+    throw makeError(
+      '4A9X8',
+      'getcallcount_arg_err',
+    );
+  }
+
+  //
+  const setCallCount = extInfo.setCallCount;
+
+  //
+  if (!ignoreCallCount && !(setCallCount instanceof Function)) {
+    throw makeError(
+      '7C4X2',
+      'setcallcount_arg_err',
+    );
+  }
+
+  //
   if (!ignoreCallCount && getCallCount() !== 0) {
-    const loc = `${cliLoc}-5H8J6`;
+    const fullLoc = `${cliLoc}+5H8J6`;
 
-    const errMsg = `Please wait for the previous network request to finish. <br/><br/>Loc: ${loc}`;
+    const errMsg = makeToastMsg(
+      fullLoc,
+      'Please wait for the previous request to complete.',
+      EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+    );
 
-    const errTitle = `Error${EnvConfig.DEV_ON ? ` (${loc})` : ''}`;
+    const errTitle = ApiResMsg.ERROR;
 
     Toast.error(errMsg, errTitle);
 
-    return Promise.resolve(null);
+    return Promise.resolve([null, extInfo]);
   }
 
   //
   const incrCallCount = () => {
+    if (ignoreCallCount) {
+      return;
+    }
+
     setCallCount(getCallCount() + 1);
   };
 
   //
   const decrCallCount = (loc: string) => {
+    if (ignoreCallCount) {
+      return;
+    }
+
     const callCount = getCallCount();
 
     if (callCount <= 0) {
       throw makeError(
-        `${loc}-6Z9N3`,
+        `${loc}+6Z9N3`,
         'call_count_decremented_to_negative_err',
       );
     }
@@ -730,9 +861,9 @@ function callApiImp<
     setCallCount(callCount - 1);
   };
 
-  //
-  const onSuccessFunc: CallApiResCallbackPlusLocType<ReqInfoType, ResInfoType> = extInfo.onSuccess
-    || onSuccessDefault;
+  // @ts-ignore
+  const onSuccessFunc: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> =
+      extInfo.onSuccess === false ? onSuccessDummy : (extInfo.onSuccess || onSuccessDefault);
 
   if (typeof onSuccessFunc !== 'function') {
     throw makeError(
@@ -741,9 +872,9 @@ function callApiImp<
     );
   }
 
-  //
-  const onFailureFunc: CallApiResCallbackPlusLocType<ReqInfoType, ResInfoType> = extInfo.onFailure
-    || onFailureDefault;
+  // @ts-ignore
+  const onFailureFunc: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> =
+      extInfo.onFailure === false ? onFailureDummy : (extInfo.onFailure || onFailureDefault);
 
   if (typeof onFailureFunc !== 'function') {
     throw makeError(
@@ -752,9 +883,9 @@ function callApiImp<
     );
   }
 
-  //
-  const onErrorFunc: CallApiResCallbackPlusLocType<ReqInfoType, ResInfoType> = extInfo.onError
-    || onErrorDefault;
+  // @ts-ignore
+  const onErrorFunc: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> =
+      extInfo.onError === false ? onErrorDummy : (extInfo.onError || onErrorDefault);
 
   if (typeof onErrorFunc !== 'function') {
     throw makeError(
@@ -773,10 +904,12 @@ function callApiImp<
   headers['Content-Type'] = 'application/json';
 
   // ----- 1U3M4 -----
-  extInfo.body.apiVer = EnvConfig.API_VER;
+  // eslint-disable-next-line no-param-reassign
+  extInfo.body.base.apiVer = EnvConfig.API_VER;
 
   // ----- 2C1P5 -----
-  extInfo.body.cliTime = moment().format('YYYY-MM-DD HH:mm:ss');
+  // eslint-disable-next-line no-param-reassign
+  extInfo.body.base.cliTime = moment().format('YYYY-MM-DD HH:mm:ss');
 
   //
   const reqBody = JSON.stringify(extInfo.body);
@@ -788,7 +921,12 @@ function callApiImp<
 
   const controller: AbortController = new AbortController();
 
-  addAbortController(controller);
+  const controllerWrapper: AbortControllerWrapper = {
+    controller,
+    extInfo,
+  };
+
+  addAbortControllerWrapper(controllerWrapper);
 
   const { signal } = controller;
 
@@ -810,147 +948,240 @@ function callApiImp<
     EnvConfig.API_CALL_REQ_TIMEOUT_MS,
   );
 
-  extInfo.resp = null;
+  // eslint-disable-next-line no-param-reassign
+  extInfo.rep = null;
 
-  let respStatus: number | null = null;
+  let repStatus: number | null = null;
 
   let callbackLoc: string | null = null;
 
   // -----
-  return fetchPromise.then((resp) => {
-    //
-    extInfo.resp = resp;
+  return fetchPromise.then((rep) => {
+    // eslint-disable-next-line no-param-reassign
+    extInfo.rep = rep;
 
     //
-    respStatus = resp.status;
+    repStatus = rep.status;
 
     //
     clearTimeout(timeoutHandle);
 
     //
-    if (!getIsMounted()) {
-      return null;
-    }
-
     if (!callCountIsDecremented) {
       decrCallCount('3S9U2');
 
       callCountIsDecremented = true;
     }
 
-    return resp.json();
-  }).then((resInfo) => {
+    //
+    return rep.json();
+  }).then((
+    repInfo: RepBodyType,
+  ): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> => {
     //
     if (!getIsMounted()) {
-      return null;
+      return Promise.resolve([null, extInfo]);
     }
 
     //
-    if (!resInfo) {
+    let fullLoc;
+
+    // @ts-ignore
+    const repLoc = repInfo?.base?.loc ?? repInfo?.loc;
+
+    if (!repLoc) {
+      fullLoc = `${cliLoc}+8P5E3`;
+    } else if (repLoc.startsWith('*')) {
+      fullLoc = repLoc;
+    } else if (repLoc.startsWith('/')) {
+      fullLoc = `${cliLoc}${repLoc}`;
+    } else {
+      fullLoc = `${cliLoc}/${repLoc}`;
+    }
+
+    //
+    const statusHandler = HTTP_STATUS_HANDLERS[repStatus as number];
+
+    if (statusHandler !== undefined) {
+      const stopped = statusHandler(fullLoc);
+
+      if (stopped) {
+        // eslint-disable-next-line no-param-reassign
+        extInfo.isAborted = true;
+
+        return Promise.resolve([null, extInfo]);
+      }
+    }
+
+    //
+    if (!repInfo) {
       throw makeError(
         '4H9Z3',
-        '`res_info_err',
+        '`rep_info_err',
       );
     }
 
     //
-    if (!((typeof extInfo.msgTimeout === 'number') && !Number.isNaN(extInfo.msgTimeout))) {
+    if (!((typeof extInfo.msgTimeout === 'number') && Number.isInteger(extInfo.msgTimeout))) {
+      // eslint-disable-next-line no-param-reassign
       extInfo.msgTimeout = EnvConfig.API_CALL_MSG_TIMEOUT_MS;
     }
 
     // -----
-    if (typeof respStatus !== 'number'
-      || respStatus < ApiResStatus.HTTP_200_BIZ_SUCC
-      || respStatus > ApiResStatus.HTTP_299_BIZ_FAIL
+    if (
+      typeof repStatus !== 'number'
+      ||
+      repStatus < ApiResStatus.HTTP_200_BIZ_SUCC
+      ||
+      repStatus > ApiResStatus.HTTP_299_BIZ_FAIL
     ) {
-      //
-      const loc = `${cliLoc}-${resInfo && resInfo.loc || '5K1E6'}`;
+      // eslint-disable-next-line no-param-reassign
+      extInfo.msgTitle = ApiResMsg.ERROR;
 
-      //
-      extInfo.msgTitle = `Error${EnvConfig.DEV_ON ? ` (${loc})` : ''}`;
-
-      //
-      extInfo.msgShown = getErrMsgShown<ReqInfoType, ResInfoType>(
-        resInfo,
+      // eslint-disable-next-line no-param-reassign
+      extInfo.msgShown = getErrMsgShown<ReqBodyType, RepBodyType>(
+        repInfo,
         extInfo,
       );
 
-      extInfo.msgShown += `<br/><br/>Loc: ${loc}`;
+      //
+      if (typeof extInfo.msgShown === 'string' && extInfo.msgShown) {
+        if (!extInfo.msgShown.endsWith('.')) {
+          // eslint-disable-next-line no-param-reassign
+          extInfo.msgShown += '.';
+        }
+      }
+
+      // eslint-disable-next-line no-param-reassign
+      extInfo.msgShown = makeToastMsg(
+        fullLoc,
+        extInfo.msgShown,
+        EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+      );
 
       //
       callbackLoc = onErrorFunc.aoikAntDesignReactStarterApiResCallbackLoc;
 
+      // eslint-disable-next-line no-param-reassign
+      extInfo.isError = true;
+      // eslint-disable-next-line no-param-reassign
+      extInfo.isFailure = false;
+      // eslint-disable-next-line no-param-reassign
+      extInfo.isSuccess = false;
+
       //
       return onErrorFunc(
-        resInfo,
+        repInfo,
         extInfo,
       );
     }
 
     //
     if (!getIsMounted()) {
-      return null;
+      return Promise.resolve([null, extInfo]);
     }
 
     //
-    if (!resInfo.loc) {
+    if (!repInfo.base) {
+      throw makeError(
+        '9I3Q2',
+        '`rep_info_base_err',
+      );
+    }
+
+    //
+    if (!repInfo.base.loc) {
       throw makeError(
         '6R9D5',
-        'res_info_no_loc_err',
+        'rep_info_no_loc_err',
       );
     }
 
     //
-    if (!resInfo.code) {
+    if (!repInfo.base.code) {
       throw makeError(
         '7W9I5',
-        'res_info_no_code_err',
+        'rep_info_no_code_err',
       );
     }
 
     //
-    if (!resInfo.msg) {
+    if (!repInfo.base.msg) {
       throw makeError(
         '8A1G4',
-        'res_info_no_msg_err',
+        'rep_info_no_msg_err',
       );
     }
 
-    //
-    extInfo.msgShown = resInfo.msg;
+    // eslint-disable-next-line no-param-reassign
+    extInfo.msgShown = repInfo.base.msg;
 
     //
-    if (respStatus !== ApiResStatus.HTTP_200_BIZ_SUCC) {
-      //
-      extInfo.msgTitle = `Failure${EnvConfig.DEV_ON ? ` (${resInfo.loc})` : ''}`;
+    if (typeof extInfo.msgShown === 'string' && extInfo.msgShown) {
+      if (!extInfo.msgShown.endsWith('.')) {
+        // eslint-disable-next-line no-param-reassign
+        extInfo.msgShown += '.';
+      }
+    }
 
-      extInfo.msgShown += `<br/><br/>Loc: ${resInfo.loc}`;
+    //
+    if (repStatus !== ApiResStatus.HTTP_200_BIZ_SUCC) {
+      // eslint-disable-next-line no-param-reassign
+      extInfo.msgTitle = ApiResMsg.FAILURE;
+
+      // eslint-disable-next-line no-param-reassign
+      extInfo.msgShown = makeToastMsg(
+        fullLoc,
+        extInfo.msgShown,
+        EnvConfig.API_CALL_FAILURE_MSG_INCLUDES_LOC,
+      );
 
       //
       callbackLoc = onFailureFunc.aoikAntDesignReactStarterApiResCallbackLoc;
 
+      // eslint-disable-next-line no-param-reassign
+      extInfo.isError = false;
+      // eslint-disable-next-line no-param-reassign
+      extInfo.isFailure = true;
+      // eslint-disable-next-line no-param-reassign
+      extInfo.isSuccess = false;
+
       //
       return onFailureFunc(
-        resInfo,
+        repInfo,
         extInfo,
       );
     }
 
-    //
-    extInfo.msgTitle = `Success${EnvConfig.DEV_ON ? ` (${resInfo.loc})` : ''}`;
+    // eslint-disable-next-line no-param-reassign
+    extInfo.msgTitle = ApiResMsg.SUCCESS;
+
+    // eslint-disable-next-line no-param-reassign
+    extInfo.msgShown = makeToastMsg(
+      fullLoc,
+      extInfo.msgShown,
+      EnvConfig.API_CALL_SUCCESS_MSG_INCLUDES_LOC,
+    );
 
     //
     callbackLoc = onSuccessFunc.aoikAntDesignReactStarterApiResCallbackLoc;
 
+    // eslint-disable-next-line no-param-reassign
+    extInfo.isError = false;
+    // eslint-disable-next-line no-param-reassign
+    extInfo.isFailure = false;
+    // eslint-disable-next-line no-param-reassign
+    extInfo.isSuccess = true;
+
     //
     return onSuccessFunc(
-      resInfo,
+      repInfo,
       extInfo,
     );
-  }).catch((err) => {
+  }).catch((err): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> => {
     try {
       if (!getIsMounted()) {
-        return null;
+        return Promise.resolve([null, extInfo]);
       }
 
       if (!callCountIsDecremented) {
@@ -959,39 +1190,40 @@ function callApiImp<
         callCountIsDecremented = true;
       }
 
+      // If the response body format is not JSON.
       if (err instanceof SyntaxError) {
-        if (extInfo.resp) {
-          const loc = `${cliLoc}-1N2H5`;
+        // If has response.
+        if (extInfo.rep) {
+          const fullLoc = `${cliLoc}+1N2H5`;
 
-          const errMsg = getErrMsgShown(
-            null,
-            extInfo,
+          const errMsg = extInfo?.rep?.status === ApiResStatus.HTTP_200_BIZ_SUCC
+            ? 'Response format error' : getErrMsgShown(
+              null,
+              extInfo,
+            );
+
+          const msgShown = makeToastMsg(
+            fullLoc,
+            errMsg,
+            EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
           );
 
-          const msgShown = `${errMsg}<br/><br/>Loc: ${loc}`;
-
-          const msgTitle = `Error${EnvConfig.DEV_ON ? ` (${loc})` : ''}`;
+          const msgTitle = ApiResMsg.ERROR;
 
           Toast.error(msgShown, msgTitle);
 
-          return null;
+          return Promise.resolve([null, extInfo]);
         }
       }
     }
     catch (err2) {
-      let loc = '2F6Y1';
+      const loc = '2F6Y1';
 
-      if (callbackLoc) {
-        loc = `${callbackLoc}-${loc}`;
-      }
-
-      if (cliLoc) {
-        loc = `${cliLoc}-${loc}`;
-      }
+      const fullLoc = callbackLoc ? `${cliLoc}+${callbackLoc}+${loc}` : `*${cliLoc}+${loc}`;
 
       //
       handleError(
-        loc,
+        fullLoc,
         err2,
       );
     }
@@ -1008,18 +1240,18 @@ function callApiImp<
       }
 
       //
-      removeAbortController(controller);
+      removeAbortControllerWrapper(controllerWrapper);
     }
     catch (err: any) {
       //
       let loc = '4P1W3';
 
       if (callbackLoc) {
-        loc = `${callbackLoc}-${loc}`;
+        loc = `${callbackLoc}+${loc}`;
       }
 
       if (cliLoc) {
-        loc = `${cliLoc}-${loc}`;
+        loc = `${cliLoc}+${loc}`;
       }
 
       //
@@ -1041,29 +1273,41 @@ function handleError(
   Logger.error(`${loc}: Caught Error`, err);
 
   //
-  if (err instanceof DOMException) {
-    if (err.name === 'AbortError') {
-      const fullLoc = `${loc}-5R9Y7`;
+  if (err.name === 'AbortError') {
+    const fullLoc = `${loc}+5R9Y7`;
 
-      const msgShown = `Network request timeout<br/><br/>Loc: ${fullLoc}`;
+    const msgShown = makeToastMsg(
+      fullLoc,
+      'Network request timeout.',
+      EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+    );
 
-      const msgTitle = `Error${EnvConfig.DEV_ON ? ` (${fullLoc})` : ''}`;
+    const msgTitle = ApiResMsg.ERROR;
 
-      Toast.error(msgShown, msgTitle);
+    Toast.error(msgShown, msgTitle);
 
-      return undefined;
-    }
+    return undefined;
   }
 
   //
-  const errLoc = err instanceof BaseError ? err.getLoc() : '';
+  let errLoc = err instanceof BaseError ? err.getLoc() : '';
 
-  const fullLoc = loc + (errLoc ? `-${errLoc}` : '');
+  if (typeof errLoc === 'string') {
+    if (errLoc && loc.startsWith(errLoc)) {
+      errLoc = '';
+    }
+  }
+
+  const fullLoc = loc + (errLoc ? `+${errLoc}` : '');
 
   //
-  const errMsg = `<br/>Loc: ${fullLoc}`;
+  const errMsg = makeToastMsg(
+    fullLoc,
+    'Frontend error.',
+    EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+  );
 
-  const errTitle = `Exception error${EnvConfig.DEV_ON ? ` (${fullLoc})` : ''}`;
+  const errTitle = ApiResMsg.ERROR;
 
   //
   Toast.error(errMsg, errTitle);
@@ -1074,7 +1318,7 @@ function handleError(
 
 
 // -----
-function makeSafeFunc(
+export function makeSafeFunc(
   loc: string,
   func: Function,
 ) {
@@ -1086,11 +1330,9 @@ function makeSafeFunc(
         return callRes.catch(
           (err: any) => {
             handleError(
-              `${loc}-6X8G1`,
+              `${loc}+6X8G1`,
               err,
             );
-
-            return SAFE_FUNC_ERROR;
           },
         );
       }
@@ -1099,18 +1341,18 @@ function makeSafeFunc(
     }
     catch (err: any) {
       handleError(
-        `${loc}-7I3S9`,
+        `${loc}+'7I3S9'`,
         err,
       );
 
-      return SAFE_FUNC_ERROR;
+      return undefined;
     }
   };
 }
 
 
 // -----
-function makeGetSetCallCount(): [CallApiGetCallCountType, CallApiSetCallCountType] {
+export function makeGetSetCallCount(): [CallApiGetCallCountType, CallApiSetCallCountType] {
   let callCount = 0;
 
   const getCallCount = () => {
@@ -1123,26 +1365,3 @@ function makeGetSetCallCount(): [CallApiGetCallCountType, CallApiSetCallCountTyp
 
   return [getCallCount, setCallCount];
 }
-
-
-// -----
-export {
-  abortApiCalls,
-  ApiReqInfoType,
-  ApiResCode,
-  ApiResDebugMsg,
-  ApiResInfoType,
-  ApiResMsg,
-  ApiResStatus,
-  callApi,
-  CallApiExtInfoType,
-  CallApiFuncParamsType,
-  CallApiGetCallCountType,
-  CallApiGetIsMountedType,
-  CallApiResCallbackPlusLocType,
-  CallApiSetCallCountType,
-  makeApiResCallback,
-  makeGetSetCallCount,
-  makeSafeFunc,
-  SAFE_FUNC_ERROR,
-};

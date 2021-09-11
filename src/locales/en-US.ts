@@ -1,4 +1,4 @@
-// ------ 6Q1N2 ------
+// +++++ 6Q1N2 +++++
 // This file is required by Umi.
 
 // -----
@@ -18,11 +18,11 @@ const LocaleConfig = {
   // ----- UserLoginComp -----
   '5X1L7': 'User Login',
   '6C2Z8': EnvConfig.APP_TITLE,
-  '7D6A9': 'Username Login',
+  '7D6A9': 'Password Login',
   '8D1T5': 'Username',
-  '9U7F6': 'Please enter username',
+  '9U7F6': 'Please enter `username`',
   '1N3X6': 'Password',
-  '2I8M5': 'Please enter password',
+  '2I8M5': 'Please enter `password`',
   '3U7W8': 'Log in',
 };
 

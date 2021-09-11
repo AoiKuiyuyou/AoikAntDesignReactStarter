@@ -1,4 +1,5 @@
-// ------ 9L3U8 ------
+// +++++ 9L3U8 +++++
+
 
 // -----
 class BaseError extends Error {

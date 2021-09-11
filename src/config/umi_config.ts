@@ -1,4 +1,5 @@
-// ------ 7D5R4 ------
+// +++++ 7D5R4 +++++
+
 
 // -----
 // eslint-disable-next-line import/no-extraneous-dependencies
@@ -12,7 +13,7 @@ import WebpackChain from 'webpack-chain';
 // Must use relative path. `@/` will cause import error.
 import { CallApiSetCallCountType } from '../base/api';
 import { CallApiGetCallCountType } from '../base/api';
-import { ApiUserGetLoginUserResInfoType } from '../pages/user/login/UserLoginComp';
+import { ApiUserGetAuthInfoRepBiz } from '../pages/user/login/api';
 import { EnvConfig } from './env_config';
 import { UmiLayoutConfig } from './umi_layout_config';
 import { UmiLayoutConfigType } from './umi_layout_config';
@@ -112,7 +113,7 @@ type MakeGetSetCallCountType = () => [CallApiGetCallCountType, CallApiSetCallCou
 
 // -----
 interface InitialStateType {
-  currUser: ApiUserGetLoginUserResInfoType | null;
+  authInfo: ApiUserGetAuthInfoRepBiz | null;
 
   makeGetIsMounted: MakeGetIsMountedType,
 

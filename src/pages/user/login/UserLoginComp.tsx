@@ -1,4 +1,5 @@
-// ------ 7N9V5 ------
+// +++++ 7N9V5 +++++
+
 
 // -----
 import { LockTwoTone } from '@ant-design/icons';
@@ -13,14 +14,8 @@ import { SelectLang } from 'umi';
 import { useIntl } from 'umi';
 import { useModel } from 'umi';
 
-import { makeApiResCallback } from '@/base/api';
 import { callApi } from '@/base/api';
-import { CallApiSetCallCountType } from '@/base/api';
-import { CallApiGetCallCountType } from '@/base/api';
-import { CallApiGetIsMountedType } from '@/base/api';
 import { makeSafeFunc } from '@/base/api';
-import { ApiReqInfoType } from '@/base/api';
-import { ApiResInfoType } from '@/base/api';
 import { gotoPath } from '@/base/cli';
 import { Toast } from '@/base/toast';
 import { ApiPath } from '@/config/api_config';
@@ -28,8 +23,20 @@ import { CliPath } from '@/config/cli_config';
 import { EnvConfig } from '@/config/env_config';
 import { InitialStateModelType } from '@/config/umi_config';
 import { PageFooterComp } from '@/pages/base/PageFooterComp';
+import { ApiUserGetAuthInfoRepBody, ApiUserLoginReqBiz } from '@/pages/user/login/api';
+import { ApiUserGetAuthInfoReqBody } from '@/pages/user/login/api';
+import { ApiUserLoginRepBody } from '@/pages/user/login/api';
+import { ApiUserLoginReqBody } from '@/pages/user/login/api';
 
 import styles from './UserLoginComp.less';
+
+
+// -----
+interface UserLoginFormParams {
+  username: string;
+
+  password: string;
+}
 
 
 // -----
@@ -68,58 +75,113 @@ const UserLoginComp: React.FC = () => {
   const [submittingFlag, setSubmittingFlag] = useState(false);
 
   //
-  const loginButtonOnClick = makeSafeFunc(
+  function apiUserLoginParamsValidate(
+    params: UserLoginFormParams,
+  ): ApiUserLoginReqBiz | null {
+    //
+    const { username } = params;
+
+    //
+    if (typeof username !== 'string' || !username) {
+      Toast.error(getText('9U7F6'), 'Form Error');
+
+      return null;
+    }
+
+    //
+    const { password } = params;
+
+    //
+    if (typeof password !== 'string' || !password) {
+      Toast.error(getText('2I8M5'), 'Form Error');
+
+      return null;
+    }
+
+    //
+    return {
+      username,
+      password,
+    };
+  }
+
+  //
+  const apiUserLoginOnSubmit = makeSafeFunc(
     '8A1W4',
-    async (formParams: LoginFormParamsType) => {
-      await callApi<ApiUserLoginReqInfoType, ApiUserLoginResInfoType>({
-        uri: ApiPath.API_USER_LOGIN,
-        body: {
-          cliLoc: '9P1O6',
-          apiLoc: '5D7A1',
-          username: formParams.username,
-          password: formParams.password,
-        },
-        getIsMounted,
-        getCallCount,
-        setCallCount,
-        onStart: makeSafeFunc(
-          '6P5T1',
-          () => {
-            setSubmittingFlag(true);
-          },
-        ),
-        onEnd: makeSafeFunc(
-          '7J9F3',
-          () => {
-            setSubmittingFlag(false);
-          },
-        ),
-        onSuccess: makeApiResCallback(
-          '1S5Q2',
-          async (
-            resInfo,
-            extInfo,
-          ) => {
-            //
-            Toast.success(extInfo.msgShown, extInfo.msgTitle);
+    async (formParams: UserLoginFormParams) => {
+      //
+      const reqBiz = apiUserLoginParamsValidate(formParams);
 
-            //
-            initialState.currUser = await callApiUserLogin(
-              getIsMounted,
-              getCallCount,
-              setCallCount,
-            );
+      //
+      if (!reqBiz) {
+        return;
+      }
 
-            //
-            if (initialState.currUser !== null) {
-              gotoPath(CliPath.USER_WELCOME);
-            }
-
-            //
-            return resInfo;
+      // ----- 9P1O6 -----
+      const [, repExt] = await callApi<
+        ApiUserLoginReqBody,
+        ApiUserLoginRepBody>({
+          uri: ApiPath.API_USER_LOGIN,
+          body: {
+            base: {
+              cliLoc: '9P1O6',
+              apiLoc: '5D7A1',
+            },
+            biz: reqBiz,
           },
-        ),
-      });
+          getIsMounted,
+          getCallCount,
+          setCallCount,
+          onStart: makeSafeFunc(
+            '6P5T1',
+            () => {
+              setSubmittingFlag(true);
+            },
+          ),
+          onEnd: makeSafeFunc(
+            '7J9F3',
+            () => {
+              setSubmittingFlag(false);
+            },
+          ),
+        });
+
+      //
+      if (!repExt.isSuccess) {
+        return;
+      }
+
+      // ----- 9P1O6 -----
+      const [repBody2, repExt2] = await callApi<
+          ApiUserGetAuthInfoReqBody,
+          ApiUserGetAuthInfoRepBody>({
+            uri: ApiPath.API_USER_GET_AUTH_INFO,
+            body: {
+              base: {
+                cliLoc: '9P1O6',
+                apiLoc: '5D7A1',
+              },
+              biz: {},
+            },
+            getIsMounted,
+            getCallCount,
+            setCallCount,
+            onSuccess: false,
+          });
+
+      //
+      if (!repExt2.isSuccess) {
+        return;
+      }
+
+      //
+      if (repBody2?.biz) {
+        //
+        initialState.authInfo = repBody2.biz;
+
+        //
+        gotoPath(CliPath.USER_WELCOME);
+      }
     },
   );
 
@@ -157,7 +219,7 @@ const UserLoginComp: React.FC = () => {
                 },
               },
             }}
-            onFinish={async (formParams) => {loginButtonOnClick(formParams);}}
+            onFinish={apiUserLoginOnSubmit}
           >
             <Tabs
               className={styles.ant_tabs_top}
@@ -214,92 +276,6 @@ const UserLoginComp: React.FC = () => {
 
 
 // -----
-interface LoginFormParamsType {
-  username: string;
-
-  password: string;
-}
-
-
-// -----
-interface ApiUserLoginReqInfoType extends ApiReqInfoType {
-  username: string,
-
-  password: string,
-}
-
-
-// -----
-interface ApiUserLoginResInfoType extends ApiResInfoType {
-}
-
-
-// -----
-interface ApiUserLogoutReqInfoType extends ApiReqInfoType {
-}
-
-
-// -----
-interface ApiUserLogoutResInfoType extends ApiResInfoType {
-}
-
-
-// -----
-interface ApiUserGetLoginUserReqInfoType extends ApiReqInfoType {
-}
-
-
-// -----
-interface ApiUserGetLoginUserResInfoType extends ApiResInfoType {
-  name: string;
-}
-
-
-// -----
-function callApiUserLogin(
-  getIsMounted: CallApiGetIsMountedType,
-  getCallCount: CallApiGetCallCountType,
-  setCallCount: CallApiSetCallCountType,
-): Promise<ApiUserGetLoginUserResInfoType | null> {
-  //
-  return callApi<ApiUserGetLoginUserReqInfoType, ApiUserGetLoginUserResInfoType>({
-    uri: ApiPath.API_USER_GET_LOGIN_Info,
-    body: {
-      cliLoc: '2X9N8',
-      apiLoc: '3O1E7',
-    },
-    getIsMounted,
-    getCallCount,
-    setCallCount,
-    onSuccess: makeApiResCallback(
-      '4S9G6',
-      async (resInfo) => {
-        return resInfo;
-      },
-    ),
-    onFailure: makeApiResCallback<ApiUserGetLoginUserReqInfoType, ApiUserGetLoginUserResInfoType>(
-      '5U1P8',
-      async () => {
-        return null;
-      },
-    ),
-    onError: makeApiResCallback<ApiUserGetLoginUserReqInfoType, ApiUserGetLoginUserResInfoType>(
-      '6J7W4',
-      async () => {
-        return null;
-      },
-    ),
-  });
-}
-
-
-// -----
 export {
-  ApiUserGetLoginUserResInfoType,
-  ApiUserLoginReqInfoType,
-  ApiUserLoginResInfoType,
-  ApiUserLogoutReqInfoType,
-  ApiUserLogoutResInfoType,
-  callApiUserLogin,
   UserLoginComp as default,
 };

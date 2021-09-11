@@ -1,4 +1,5 @@
-// ------ 9P2K4 -----
+// +++++ 9P2K4 +++++
+
 
 // -----
 module.exports = {
@@ -12,15 +13,15 @@ module.exports = {
     'import',
   ],
   rules: {
-    // ------ Indentation ------
+    // ----- Indentation -----
     'indent': ['error', 2],
 
-    // ------ Space ------
+    // ----- Space -----
     'no-trailing-spaces': 'error',
 
     'object-curly-spacing': 'error',
 
-    // ------ Newline ------
+    // ----- Newline -----
     'linebreak-style': ['error', 'unix'],
 
     'eol-last': 'error',
@@ -36,7 +37,7 @@ module.exports = {
     // ----- Semicolon -----
     'semi': ['error', 'always'],
 
-    // ------ Import ------
+    // ----- Import -----
     'sort-imports': 'off',
 
     'import/order': 'off',
@@ -55,17 +56,17 @@ module.exports = {
 
     'simple-import-sort/imports': 'error',
 
-    // ------ Export ------
+    // ----- Export -----
     'simple-import-sort/exports': 'error',
 
-    // ------ Variable ------
+    // ----- Variable -----
     // Disable these checks because they do not support ignoring unused underscore name.
     // Use TypeScript's `strict` check instead.
     'no-unused-vars': 'off',
 
     '@typescript-eslint/no-unused-vars': 'off',
 
-    // ------ Function ------
+    // ----- Function -----
 
     'func-style': [
       'error',
@@ -89,7 +90,7 @@ module.exports = {
 
     'max-classes-per-file': 'off',
 
-    // ------ Object Literal ------
+    // ----- Object Literal -----
     'comma-dangle': ['error', 'always-multiline'],
 
     'object-property-newline': [
@@ -98,7 +99,10 @@ module.exports = {
       },
     ],
 
-    // ------ String Literal ------
+    // ----- Object -----
+    'prefer-destructuring': 'off',
+
+    // ----- String Literal -----
     'quotes': ['error', 'single'],
   },
   ignorePatterns: [

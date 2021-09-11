@@ -1,5 +1,6 @@
-// ------ 3V1Y2 ------
+// +++++ 3V1Y2 +++++
 // This file is required by Umi.
+
 
 // -----
 import { PageLoading } from '@ant-design/pro-layout';
@@ -9,14 +10,17 @@ import React from 'react';
 import { MutableRefObject } from 'react';
 import { history } from 'umi';
 
+import { callApi } from '@/base/api';
 import { makeGetSetCallCount } from '@/base/api';
+import { ApiPath } from '@/config/api_config';
 import { CliPath } from '@/config/cli_config';
 import { InitialStateType } from '@/config/umi_config';
 import { MakeGetIsMountedType } from '@/config/umi_config';
 import { UmiLayoutConfig } from '@/config/umi_layout_config';
 import { PageFooterComp } from '@/pages/base/PageFooterComp';
 import { PageHeaderComp } from '@/pages/base/PageHeaderComp';
-import { callApiUserLogin } from '@/pages/user/login/UserLoginComp';
+import { ApiUserGetAuthInfoRepBody } from '@/pages/user/login/api';
+import { ApiUserGetAuthInfoReqBody } from '@/pages/user/login/api';
 
 
 // ----- 4U7G9 -----
@@ -52,7 +56,7 @@ async function getInitialState(): Promise<InitialStateType>
   //
   if (history.location.pathname === CliPath.USER_LOGIN) {
     return {
-      currUser: null,
+      authInfo: null,
       makeGetSetCallCount,
       makeGetIsMounted,
       makeGetText: getGetText,
@@ -61,15 +65,33 @@ async function getInitialState(): Promise<InitialStateType>
   }
 
   //
-  const currUser = await callApiUserLogin(
-    () => {return true;},
-    getCallCount,
-    setCallCount,
-  );
+  const [repBody, repExt] = await callApi<
+    ApiUserGetAuthInfoReqBody,
+    ApiUserGetAuthInfoRepBody>({
+      uri: ApiPath.API_USER_GET_AUTH_INFO,
+      body: {
+        base: {
+          cliLoc: '2X9N8',
+          apiLoc: '3O1E7',
+        },
+        biz: {},
+      },
+      getIsMounted: () => {
+        return true;
+      },
+      getCallCount,
+      setCallCount,
+      onSuccess: false,
+      onFailure: false,
+      onError: false,
+    });
+
+  //
+  const authInfo = (repExt.isSuccess ? repBody?.biz : null) ?? null;
 
   //
   return {
-    currUser,
+    authInfo,
     makeGetIsMounted,
     makeGetSetCallCount,
     makeGetText: getGetText,
@@ -109,13 +131,13 @@ const layout = (params: LayoutFuncParamsType): LayoutFuncResType => {
     disableContentMargin: false,
     onPageChange: () => {
       //
-      const { currUser } = params.initialState;
+      const authInfo = params.initialState.authInfo;
 
       //
-      const { location } = history;
+      const location = history.location;
 
       //
-      if (!currUser && location.pathname !== CliPath.USER_LOGIN) {
+      if (!authInfo && location.pathname !== CliPath.USER_LOGIN) {
         history.push(CliPath.USER_LOGIN);
       }
     },

@@ -1,4 +1,5 @@
-// ------ 5T8O3 ------
+// +++++ 5T8O3 +++++
+
 
 // -----
 import { DefaultFooter } from '@ant-design/pro-layout';
@@ -7,7 +8,7 @@ import React from 'react';
 import { EnvConfig } from '@/config/env_config';
 
 
-// ------ 6H8S1 ------
+// ----- 6H8S1 -----
 const PageFooterComp: React.FC = () => {
   return (
     <DefaultFooter

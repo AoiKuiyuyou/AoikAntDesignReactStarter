@@ -1,4 +1,5 @@
-// ------ 5C6R9 ------
+// +++++ 5C6R9 +++++
+
 
 // -----
 const MODE: 'dev' | 'test' | 'prod' = 'dev';
@@ -36,6 +37,10 @@ const OWNER_SITE_URI = 'https://github.com/AoiKuiyuyou/AoikAntDesignReactStarter
 
 
 // -----
+const APP_LOC = '1T6F5';
+
+
+// -----
 const APP_TITLE = 'AoikAntDesignReactStarter';
 
 
@@ -68,6 +73,18 @@ const API_CALL_MSG_TIMEOUT_MS = 5000;
 
 
 // -----
+const API_CALL_SUCCESS_MSG_INCLUDES_LOC = false;
+
+
+// -----
+const API_CALL_FAILURE_MSG_INCLUDES_LOC = true;
+
+
+// -----
+const API_CALL_ERROR_MSG_INCLUDES_LOC = true;
+
+
+// -----
 const EnvConfig = {
   MODE,
   DEV_ON,
@@ -77,6 +94,7 @@ const EnvConfig = {
   PROXY_ON,
   OWNER_NAME,
   OWNER_SITE_URI,
+  APP_LOC,
   APP_TITLE,
   API_VER,
   API_HOST,
@@ -85,6 +103,9 @@ const EnvConfig = {
   API_URI_ROOT,
   API_CALL_REQ_TIMEOUT_MS,
   API_CALL_MSG_TIMEOUT_MS,
+  API_CALL_SUCCESS_MSG_INCLUDES_LOC,
+  API_CALL_FAILURE_MSG_INCLUDES_LOC,
+  API_CALL_ERROR_MSG_INCLUDES_LOC,
 };
 
 
