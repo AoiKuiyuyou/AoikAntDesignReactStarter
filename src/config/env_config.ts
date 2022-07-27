@@ -85,6 +85,10 @@ const API_CALL_ERROR_MSG_INCLUDES_LOC = true;
 
 
 // -----
+const SUCCESS_TOAST_SHOW_LOC = false;
+
+
+// -----
 const EnvConfig = {
   MODE,
   DEV_ON,
@@ -106,6 +110,7 @@ const EnvConfig = {
   API_CALL_SUCCESS_MSG_INCLUDES_LOC,
   API_CALL_FAILURE_MSG_INCLUDES_LOC,
   API_CALL_ERROR_MSG_INCLUDES_LOC,
+  SUCCESS_TOAST_SHOW_LOC,
 };
 
 
