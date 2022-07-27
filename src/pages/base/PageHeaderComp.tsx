@@ -137,7 +137,11 @@ const PageHeaderComp: React.FC = () => {
 
           //
           if (history.location.pathname !== CliPath.USER_LOGIN) {
-            gotoPath(CliPath.USER_LOGIN);
+            // ----- 2K7I9 -----
+            gotoPath({
+              loc: '2K7I9',
+              path: CliPath.USER_LOGIN
+            });
           }
 
           //

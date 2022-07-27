@@ -179,8 +179,11 @@ const UserLoginComp: React.FC = () => {
         //
         initialState.authInfo = repBody2.biz;
 
-        //
-        gotoPath(CliPath.USER_WELCOME);
+        // ----- 3X1V8 -----
+        gotoPath({
+          loc: '3X1V8',
+          path: CliPath.USER_WELCOME
+        });
       }
     },
   );
