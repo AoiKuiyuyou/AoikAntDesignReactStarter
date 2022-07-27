@@ -578,7 +578,7 @@ export interface CallApiFuncParamsType<ReqParams extends ApiReqParams,
 
   body: ReqParams;
 
-  getIsMounted: CallApiGetIsMountedType;
+  getIsMounted?: CallApiGetIsMountedType;
 
   getCallCount?: CallApiGetCallCountType;
 
@@ -861,7 +861,7 @@ function callApiImp<ReqParams extends ApiReqParams,
   let getIsMounted = extInfo.getIsMounted;
 
   //
-  if (getIsMounted === undefined || getIsMounted === null) {
+  if (getIsMounted === undefined) {
     //
     getIsMounted = function() {
       return true;
@@ -878,19 +878,48 @@ function callApiImp<ReqParams extends ApiReqParams,
   }
 
   //
-  let ignoreCallCount: boolean = extInfo.ignoreCallCount || true;
+  const getCallCount = extInfo.getCallCount;
 
   //
-  if ((typeof ignoreCallCount) !== 'boolean') {
+  const setCallCount = extInfo.setCallCount;
+
+  //
+  const getCallCountExists = getCallCount !== undefined;
+
+  const setCallCountExists = setCallCount !== undefined;
+
+  //
+  if (
+    (getCallCountExists && !setCallCountExists)
+    ||
+    (!getCallCountExists && setCallCountExists)
+  ) {
+    // ----- 1K8P7 -----
+    throw makeError(
+      '1K8P7',
+      'getcallcount_setcallcount_args_not_paired_err',
+    );
+  }
+
+  //
+  let ignoreCallCount: boolean;
+
+  //
+  if (extInfo.ignoreCallCount === undefined) {
+    //
+    ignoreCallCount = !getCallCountExists;
+  }
+  else if (typeof extInfo.ignoreCallCount === 'boolean') {
+    //
+    ignoreCallCount = extInfo.ignoreCallCount
+  }
+  else {
     // ----- 9O3E5 -----
     throw makeError(
       '9O3E5',
       'ignorecallcount_arg_err',
     );
   }
-
-  //
-  const getCallCount = extInfo.getCallCount;
 
   //
   if (!ignoreCallCount && !(getCallCount instanceof Function)) {
@@ -900,9 +929,6 @@ function callApiImp<ReqParams extends ApiReqParams,
       'getcallcount_arg_err',
     );
   }
-
-  //
-  const setCallCount = extInfo.setCallCount;
 
   //
   if (!ignoreCallCount && !(setCallCount instanceof Function)) {
