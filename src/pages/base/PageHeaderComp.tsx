@@ -93,7 +93,7 @@ const PageHeaderComp: React.FC = () => {
   const [getCallCount, setCallCount] = makeGetSetCallCount();
 
   //
-  const getText = makeGetText(useIntl());
+  const TT = makeGetText(useIntl());
 
   //
   const menuOnClick = makeSafeFunc(
@@ -164,7 +164,7 @@ const PageHeaderComp: React.FC = () => {
   const menuComp = (
     <Menu className={styles.menu} selectedKeys={[]} onClick={menuOnClick}>
       <Menu.Item key={MenuKey.LOGOUT}>
-        {getText('2Y5A7')}
+        {TT('2Y5A7')}
       </Menu.Item>
     </Menu>
   );

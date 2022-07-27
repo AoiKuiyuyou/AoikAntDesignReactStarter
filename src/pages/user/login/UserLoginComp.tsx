@@ -61,7 +61,7 @@ const UserLoginComp: React.FC = () => {
   const [getCallCount, setCallCount] = makeGetSetCallCount();
 
   //
-  const getText = makeGetText(useIntl());
+  const TT = makeGetText(useIntl());
 
   //
   const [authType, setAuthType] = useState<AuthType>(AuthType.LOGIN_NAME);
@@ -83,7 +83,7 @@ const UserLoginComp: React.FC = () => {
 
     //
     if (typeof username !== 'string' || !username) {
-      Toast.error(getText('9U7F6'), 'Form Error');
+      Toast.error(TT('9U7F6'), 'Form Error');
 
       return null;
     }
@@ -93,7 +93,7 @@ const UserLoginComp: React.FC = () => {
 
     //
     if (typeof password !== 'string' || !password) {
-      Toast.error(getText('2I8M5'), 'Form Error');
+      Toast.error(TT('2I8M5'), 'Form Error');
 
       return null;
     }
@@ -196,11 +196,11 @@ const UserLoginComp: React.FC = () => {
         <div className={styles.top}>
           <div className={styles.header}>
             <span className={styles.title}>
-              {getText('6C2Z8')}
+              {TT('6C2Z8')}
             </span>
           </div>
           <div className={styles.desc}>
-            {getText('5X1L7')}
+            {TT('5X1L7')}
           </div>
         </div>
 
@@ -211,7 +211,7 @@ const UserLoginComp: React.FC = () => {
             }}
             submitter={{
               searchConfig: {
-                submitText: getText('3U7W8'),
+                submitText: TT('3U7W8'),
               },
               render: (_, dom) => {return dom.pop();},
               submitButtonProps: {
@@ -231,7 +231,7 @@ const UserLoginComp: React.FC = () => {
             >
               <Tabs.TabPane
                 key={AuthType.LOGIN_NAME}
-                tab={getText('7D6A9')}
+                tab={TT('7D6A9')}
               />
             </Tabs>
 
@@ -244,11 +244,11 @@ const UserLoginComp: React.FC = () => {
                     size: 'large',
                     prefix: <UserOutlined className={styles.prefixIcon} />,
                   }}
-                  placeholder={getText('8D1T5')}
+                  placeholder={TT('8D1T5')}
                   rules={[
                     {
                       required: true,
-                      message: getText('9U7F6'),
+                      message: TT('9U7F6'),
                     },
                   ]}
                 />
@@ -259,11 +259,11 @@ const UserLoginComp: React.FC = () => {
                     size: 'large',
                     prefix: <LockTwoTone className={styles.prefixIcon} />,
                   }}
-                  placeholder={getText('1N3X6')}
+                  placeholder={TT('1N3X6')}
                   rules={[
                     {
                       required: true,
-                      message: getText('2I8M5'),
+                      message: TT('2I8M5'),
                     },
                   ]}
                 />

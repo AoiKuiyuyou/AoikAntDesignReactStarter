@@ -22,14 +22,14 @@ const PageNotFoundComp: React.FC = () => {
   const { makeGetText } = initialState;
 
   //
-  const getText = makeGetText(useIntl());
+  const TT = makeGetText(useIntl());
 
   return (
     <Result
-      title={getText('3S1F7')}
+      title={TT('3S1F7')}
       extra={
         <Button type="primary" onClick={() => {return history.push(CliPath.ROOT);}}>
-          {getText('4N2S8')}
+          {TT('4N2S8')}
         </Button>
       }
     />
