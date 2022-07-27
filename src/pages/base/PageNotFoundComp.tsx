@@ -19,10 +19,10 @@ const PageNotFoundComp: React.FC = () => {
   const { initialState } = useModel('@@initialState') as InitialStateModelType;
 
   //
-  const { makeGetText } = initialState;
+  const { makeTT } = initialState;
 
   //
-  const TT = makeGetText(useIntl());
+  const TT = makeTT(useIntl());
 
   return (
     <Result

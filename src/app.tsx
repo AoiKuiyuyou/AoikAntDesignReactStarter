@@ -36,18 +36,18 @@ async function getInitialState(): Promise<InitialStateType>
   };
 
   //
-  const getGetText = (intl: IntlShape) => {
+  const makeTT = (intl: IntlShape) => {
     const { formatMessage } = intl;
 
     if (!formatMessage) {
       throw new Error('7G3H5: no_intl_err');
     }
 
-    const getText = (id: string) => {
+    const tt = (id: string) => {
       return formatMessage({ id });
     };
 
-    return getText;
+    return tt;
   };
 
   //
@@ -56,7 +56,7 @@ async function getInitialState(): Promise<InitialStateType>
       authInfo: null,
       makeGetIsMounted,
       makeGetSetCallCount,
-      makeGetText: getGetText,
+      makeTT,
       settings: UmiLayoutConfig,
     };
   }
@@ -86,7 +86,7 @@ async function getInitialState(): Promise<InitialStateType>
     authInfo,
     makeGetIsMounted,
     makeGetSetCallCount,
-    makeGetText: getGetText,
+    makeTT,
     settings: UmiLayoutConfig,
   };
 }

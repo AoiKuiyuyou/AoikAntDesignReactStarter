@@ -49,11 +49,11 @@ const UserLoginComp: React.FC = () => {
 
   //
   const {
-    makeGetText,
+    makeTT,
   } = initialState;
 
   //
-  const TT = makeGetText(useIntl());
+  const TT = makeTT(useIntl());
 
   //
   const [authType, setAuthType] = useState<AuthType>(AuthType.LOGIN_NAME);

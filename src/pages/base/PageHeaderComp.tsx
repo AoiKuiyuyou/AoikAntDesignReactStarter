@@ -81,11 +81,11 @@ const PageHeaderComp: React.FC = () => {
 
   //
   const {
-    makeGetText,
+    makeTT,
   } = initialState;
 
   //
-  const TT = makeGetText(useIntl());
+  const TT = makeTT(useIntl());
 
   //
   const menuOnClick = makeSafeFunc(

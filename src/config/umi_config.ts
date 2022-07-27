@@ -106,7 +106,7 @@ const UmiConfig = {
 // -----
 type MakeGetIsMountedType = (isMounted: MutableRefObject<boolean>) => () => boolean;
 
-type MakeGetTextType = (intl: IntlShape) => (id: string) => string;
+type MakeTextTransformType = (intl: IntlShape) => (id: string) => string;
 
 type MakeGetSetCallCountType = () => [CallApiGetCallCountType, CallApiSetCallCountType];
 
@@ -119,7 +119,7 @@ interface InitialStateType {
 
   makeGetSetCallCount: MakeGetSetCallCountType,
 
-  makeGetText: MakeGetTextType,
+  makeTT: MakeTextTransformType,
 
   settings: UmiLayoutConfigType;
 }
