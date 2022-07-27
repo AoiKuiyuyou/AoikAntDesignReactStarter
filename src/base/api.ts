@@ -2,16 +2,20 @@
 
 
 // -----
+// Must use relative path. `@/` will cause import error.
 import 'abortcontroller-polyfill/dist/polyfill-patch-fetch';
 
 import moment from 'moment';
 
 // Must use relative path. `@/` will cause import error.
-import { EnvConfig } from '../config/env_config';
+import { gotoPath } from "../base/cli";
+import { EnvConfig as CONFIG } from '../config/env_config';
+import { AbortRestError } from './error';
 import { BaseError } from './error';
 import { makeError } from './error';
 import { Logger } from './logging';
 import { Toast } from './toast';
+import { toastError } from './toast';
 
 
 // -----
@@ -19,6 +23,8 @@ export enum ApiResStatus {
   HTTP_200_BIZ_SUCC = 200,
   HTTP_299_BIZ_FAIL = 299,
   HTTP_300 = 300,
+  HTTP_301 = 301,
+  HTTP_302 = 302,
   HTTP_399 = 399,
   HTTP_400_ARG_ERR = 400,
   HTTP_429_FREQ_ERR = 429,
@@ -52,10 +58,25 @@ export enum ApiResCode {
 // -----
 export enum ApiResMsg {
   // ----- Base -----
-  SUCCESS = 'Success',
-  FAILURE = 'Failure',
-  ERROR = 'Error',
-  NET_REQ_ERR = 'Network request error',
+  FRONTEND_PROC_ERR = 'Frontend error',
+  FRONTEND_PROC_ERR_TITLE = 'Frontend error',
+  BROWSER_VERSION_LOW = 'Browser version is low, please upgrade',
+  BROWSER_VERSION_LOW_TITLE = 'Browser version error',
+  WAIT_PREV_REQ = 'Please wait for the previous request to complete',
+  WAIT_PREV_REQ_TITLE = 'Operation too fast',
+  REQ_ERR = 'Network request error',
+  REQ_TIMEOUT =  'Network request timeout',
+  REQ_TIMEOUT_TITLE =  'Network request error',
+  REP_NO_STATUS = 'Network response no status code',
+  REP_FMT_ERR = 'Network response format error',
+  LOGIN_INVALID = 'Please log in',
+  LOGIN_INVALID_TITLE = 'Login invalid',
+  BACKEND_PROC_ERR_TITLE = 'Backend error',
+
+  BIZ_SUCC = 'Operation success',
+  BIZ_SUCC_TITLE = 'Success',
+  BIZ_FAIL = 'Operation failure',
+  BIZ_FAIL_TITLE = 'Failure',
   ARG_ERR = 'Argument error',
   ARG_PARSE_ERR = 'Argument parse error',
   AUTHEN_ERR = 'Authentication error',
@@ -65,17 +86,16 @@ export enum ApiResMsg {
   ACCEPT_ERR = 'Request condition error',
   PROXY_AUTH_ERR = 'Proxy authentication error',
   PROTO_VERSION_ERR = 'Protocol version error',
-  FREQ_ERR = 'Operation too frequent. Please try later.',
+  FREQ_ERR = 'Operation too frequent. Please try later',
   EXC_ERR = 'Backend exception error',
   IMP_ERR = 'Backend implementation error',
-  UNRESP_ERR = 'Backend unresponsive. Please try later.',
+  UNRESP_ERR = 'Backend unresponsive. Please try later',
   UNKNOWN_2XX_ERR = 'Unknown business status code',
   UNKNOWN_3XX_ERR = 'Unknown redirect status code',
   UNKNOWN_4XX_ERR = 'Unknown argument, authentication, or authorization error',
   UNKNOWN_5XX_ERR = 'Unknown backend error',
   UNKNOWN_OTHER_ERR = 'Unknown other status code',
-  PAGE_EXPIRED_ERR = 'Page might be expired.'
-    + 'Please press `Ctrl+F5` or swipe down the phone screen to refresh the page.',
+  PAGE_EXPIRED_ERR = 'Page might be expired. Please press `Ctrl+F5` or swipe down the phone screen to refresh the page',
   ERR_LOC_POSTFIX = 'Location:',
 
   // ----- Login -----
@@ -89,7 +109,6 @@ export enum ApiResMsg {
 export function makeToastMsg(
   loc: string,
   msg: string,
-  addLocToMsg: boolean,
 ): string {
   if (!msg.endsWith('.')) {
     // eslint-disable-next-line no-param-reassign
@@ -98,37 +117,30 @@ export function makeToastMsg(
 
   const locStr = loc.replace('/', '<br/>/');
 
-  const toastMsg = addLocToMsg ?
-    `${msg}<br/><br/>${ApiResMsg.ERR_LOC_POSTFIX}<br/>${locStr}` : msg;
+  const toastMsg = `${msg}<br/><br/>${ApiResMsg.ERR_LOC_POSTFIX}：<br/>${locStr}`;
 
   return toastMsg;
 }
 
 
 // -----
-export enum ApiResDebugMsg {
-  EMPTY = '',
-}
-
-
-// -----
-export interface ApiReqBody {
+export interface ApiReqParams {
   base: {
     apiLoc: string;
 
     cliLoc: string;
 
-    // Added by `callApi` at 1U3M4.
+    // Added by `callApi` at 2D8Q7.
     apiVer?: string;
 
-    // Added by `callApi` at 2C1P5.
+    // Added by `callApi` at 3V7S1.
     cliTime?: string;
   }
 }
 
 
 // -----
-export interface ApiRepBody {
+export interface ApiRepParams {
   base: {
     loc: string;
 
@@ -137,6 +149,8 @@ export interface ApiRepBody {
     code: string;
 
     msg: string;
+
+    redTo?: string;
   },
 }
 
@@ -144,27 +158,27 @@ export interface ApiRepBody {
 // -----
 export function getHttpStatusMsg(status: number | null) {
   if (typeof status !== 'number') {
-    return `No status code.${EnvConfig.DEV_ON ? ` (${status})` : ''}`;
+    return `${ApiResMsg.REP_NO_STATUS}${CONFIG.DEV_ON ? `（${status}）` : ''}`;
   }
 
   if (status === ApiResStatus.HTTP_200_BIZ_SUCC) {
-    return ApiResMsg.SUCCESS;
+    return ApiResMsg.BIZ_SUCC;
   }
 
   if (status === ApiResStatus.HTTP_299_BIZ_FAIL) {
-    return ApiResMsg.FAILURE;
+    return ApiResMsg.BIZ_FAIL;
   }
 
   if (status > ApiResStatus.HTTP_200_BIZ_SUCC && status < ApiResStatus.HTTP_299_BIZ_FAIL) {
-    return `${ApiResMsg.UNKNOWN_2XX_ERR}${EnvConfig.DEV_ON ? ` (${status})` : ''}`;
+    return `${ApiResMsg.UNKNOWN_2XX_ERR}${CONFIG.DEV_ON ? `（${status}）` : ''}`;
   }
 
   if (status >= ApiResStatus.HTTP_300 && status <= ApiResStatus.HTTP_399) {
-    return `${ApiResMsg.UNKNOWN_3XX_ERR}${EnvConfig.DEV_ON ? ` (${status})` : ''}`;
+    return `${ApiResMsg.UNKNOWN_3XX_ERR}${CONFIG.DEV_ON ? `（${status}）` : ''}`;
   }
 
   if (status === ApiResStatus.HTTP_400_ARG_ERR) {
-    return `${ApiResMsg.ARG_ERR}. ${ApiResMsg.PAGE_EXPIRED_ERR}.`;
+    return `${ApiResMsg.ARG_ERR}.${ApiResMsg.PAGE_EXPIRED_ERR}.`;
   }
 
   if (status === ApiResStatus.HTTP_401_AUTHEN_ERR) {
@@ -176,11 +190,11 @@ export function getHttpStatusMsg(status: number | null) {
   }
 
   if (status === ApiResStatus.HTTP_404_ROUTE_ERR) {
-    return `${ApiResMsg.ROUTE_ERR}. ${ApiResMsg.PAGE_EXPIRED_ERR}.`;
+    return `${ApiResMsg.ROUTE_ERR}.${ApiResMsg.PAGE_EXPIRED_ERR}.`;
   }
 
   if (status === ApiResStatus.HTTP_405_METHOD_ERR) {
-    return `${ApiResMsg.METHOD_ERR}. ${ApiResMsg.PAGE_EXPIRED_ERR}.`;
+    return `${ApiResMsg.METHOD_ERR}.${ApiResMsg.PAGE_EXPIRED_ERR}.`;
   }
 
   if (status === ApiResStatus.HTTP_406_ACCEPT_ERR) {
@@ -196,7 +210,7 @@ export function getHttpStatusMsg(status: number | null) {
   }
 
   if (status >= ApiResStatus.HTTP_400_ARG_ERR && status <= ApiResStatus.HTTP_499) {
-    return `${ApiResMsg.UNKNOWN_4XX_ERR}${EnvConfig.DEV_ON ? ` (${status})` : ''}`;
+    return `${ApiResMsg.UNKNOWN_4XX_ERR}${CONFIG.DEV_ON ? `（${status}）` : ''}`;
   }
 
   if (status === ApiResStatus.HTTP_500_EXC_ERR) {
@@ -222,18 +236,18 @@ export function getHttpStatusMsg(status: number | null) {
   }
 
   if (status >= ApiResStatus.HTTP_500_EXC_ERR && status <= ApiResStatus.HTTP_599) {
-    return `${ApiResMsg.UNKNOWN_5XX_ERR}${EnvConfig.DEV_ON ? ` (${status})` : ''}`;
+    return `${ApiResMsg.UNKNOWN_5XX_ERR}${CONFIG.DEV_ON ? `（${status}）` : ''}`;
   }
 
-  return `${ApiResMsg.UNKNOWN_OTHER_ERR}${EnvConfig.DEV_ON ? ` (${status})` : ''}`;
+  return `${ApiResMsg.UNKNOWN_OTHER_ERR}${CONFIG.DEV_ON ? `（${status}）` : ''}`;
 }
 
 
 //
-export function getErrMsgShown<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody>(
-  repInfo: RepBodyType | null,
-  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
+export function getErrMsgShown<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  repInfo: RepParams | null,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
 ) {
   //
   const repStatus = extInfo.rep === null ? 0 : extInfo.rep.status;
@@ -242,7 +256,7 @@ export function getErrMsgShown<ReqBodyType extends ApiReqBody,
   let repMsg: string;
 
   if (extInfo.rep === null) {
-    repMsg = ApiResMsg.NET_REQ_ERR;
+    repMsg = ApiResMsg.REQ_ERR;
   }
   else if (repInfo && repInfo.base && repInfo.base.msg) {
     repMsg = repInfo.base.msg;
@@ -276,7 +290,7 @@ export function getErrMsgShown<ReqBodyType extends ApiReqBody,
     errMsgShown = repMsg;
 
     if (!errMsgShown) {
-      errMsgShown = ApiResMsg.NET_REQ_ERR;
+      errMsgShown = ApiResMsg.REQ_ERR;
     }
   }
 
@@ -333,76 +347,47 @@ export function abortApiCalls() {
 
 
 // -----
-type HttpStatusHandler = (loc: string) => boolean;
+type CallApiResCallbackType<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams,
+  > = ((
+  repInfo: RepParams,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
+) => Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]>);
 
 
 // -----
-let HTTP_STATUS_HANDLERS: {
-  [key: number]: HttpStatusHandler,
-} = {};
-
-
-// -----
-export function addHttpStatusHandler(
-  status: number,
-  handler: HttpStatusHandler,
-) {
-  HTTP_STATUS_HANDLERS[status] = handler;
-}
-
+export type CallApiResCallbackPlusLocType<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams> = CallApiResCallbackType<ReqParams, RepParams> &
+  {
+    // Added by `callApi` at 4U6D7.
+    aoikAntDesignReactStarterApiResCallbackLoc: string
+  };
 
 // -----
-export function removeHttpStatusHandler(status: number) {
-  delete HTTP_STATUS_HANDLERS[status];
-}
-
-
-// -----
-export function clearHttpStatusHandlers() {
-  HTTP_STATUS_HANDLERS = {};
-}
-
-
-// -----
-type CallApiResCallbackType<ReqBodyType extends ApiReqBody,
-    RepBodyType extends ApiRepBody,
-    > = ((
-    repInfo: RepBodyType,
-    extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
-) => Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]>);
-
-
-// -----
-export type CallApiResCallbackPlusLocType<ReqBodyType extends ApiReqBody,
-    RepBodyType extends ApiRepBody> = CallApiResCallbackType<ReqBodyType, RepBodyType> &
-    {
-      // Added by `callApi` at 1T4N3.
-      aoikAntDesignReactStarterApiResCallbackLoc: string
-    };
-
-// -----
-function onSuccessDummy<ReqBodyType extends ApiReqBody,
-    RepBodyType extends ApiRepBody>(
-  repInfo: RepBodyType,
-  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
-): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+function onSuccessDummy<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  repInfo: RepParams,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
+): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> {
   return Promise.resolve([repInfo, extInfo]);
 }
 
-onSuccessDummy.aoikAntDesignReactStarterApiResCallbackLoc = '3A5B7';
+// ----- 4M6N2 -----
+onSuccessDummy.aoikAntDesignReactStarterApiResCallbackLoc = '4M6N2';
 
 
 // -----
-function onSuccessDefault<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody>(
-  repInfo: RepBodyType,
-  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
-): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+function onSuccessDefault<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  repInfo: RepParams,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
+): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> {
   const loc = repInfo.base?.loc;
 
   if (!loc) {
+    // ----- 5Z1U2 -----
     throw makeError(
-      '5T7C3',
+      '5Z1U2',
       'rep_info_no_loc_err',
     );
   }
@@ -419,32 +404,35 @@ function onSuccessDefault<ReqBodyType extends ApiReqBody,
   return Promise.resolve([repInfo, extInfo]);
 }
 
-onSuccessDefault.aoikAntDesignReactStarterApiResCallbackLoc = '6U8J3';
+// ----- 1O9F4 -----
+onSuccessDefault.aoikAntDesignReactStarterApiResCallbackLoc = '1O9F4';
 
 
 // -----
-function onFailureDummy<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody>(
-  repInfo: RepBodyType,
-  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
-): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+function onFailureDummy<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  repInfo: RepParams,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
+): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> {
   return Promise.resolve([repInfo, extInfo]);
 }
 
-onFailureDummy.aoikAntDesignReactStarterApiResCallbackLoc = '4M6D1';
+// ----- 5C8D7 -----
+onFailureDummy.aoikAntDesignReactStarterApiResCallbackLoc = '5C8D7';
 
 
 // -----
-function onFailureDefault<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody>(
-  repInfo: RepBodyType,
-  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
-): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+function onFailureDefault<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  repInfo: RepParams,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
+): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> {
   const loc = repInfo.base?.loc;
 
   if (!loc) {
+    // ----- 6C9Z8 -----
     throw makeError(
-      '7C5S6',
+      '6C9Z8',
       'rep_info_no_loc_err',
     );
   }
@@ -461,27 +449,29 @@ function onFailureDefault<ReqBodyType extends ApiReqBody,
   return Promise.resolve([repInfo, extInfo]);
 }
 
-onFailureDefault.aoikAntDesignReactStarterApiResCallbackLoc = '8V3R4';
+// ----- 2G8S6 -----
+onFailureDefault.aoikAntDesignReactStarterApiResCallbackLoc = '2G8S6';
 
 
 // -----
-function onErrorDummy<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody>(
-  repInfo: RepBodyType,
-  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
-): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+function onErrorDummy<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  repInfo: RepParams,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
+): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> {
   return Promise.resolve([repInfo, extInfo]);
 }
 
-onErrorDummy.aoikAntDesignReactStarterApiResCallbackLoc = '5S2R8';
+// ----- 6T3M9 -----
+onErrorDummy.aoikAntDesignReactStarterApiResCallbackLoc = '6T3M9';
 
 
 // -----
-function onErrorDefault<ReqBodyType extends ApiReqBody,
-    RepBodyType extends ApiRepBody>(
-  repInfo: RepBodyType,
-  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
-): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+function onErrorDefault<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  repInfo: RepParams,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
+): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> {
   Toast.error(
     extInfo.msgShown,
     extInfo.msgTitle,
@@ -494,7 +484,8 @@ function onErrorDefault<ReqBodyType extends ApiReqBody,
   return Promise.resolve([repInfo, extInfo]);
 }
 
-onErrorDefault.aoikAntDesignReactStarterApiResCallbackLoc = '9O2Z1';
+// ----- 3X2M6 -----
+onErrorDefault.aoikAntDesignReactStarterApiResCallbackLoc = '3X2M6';
 
 
 // -----
@@ -502,15 +493,15 @@ export const SAFE_FUNC_ERROR = {};
 
 
 // -----
-export function makeApiResCallback<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody>(
+export function makeApiResCallback<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
   loc: string,
-  func: CallApiResCallbackType<ReqBodyType, RepBodyType>,
-): CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> {
+  func: CallApiResCallbackType<ReqParams, RepParams>,
+): CallApiResCallbackPlusLocType<ReqParams, RepParams> {
   //
-  const funcWithLoc = func as CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType>;
+  const funcWithLoc = func as CallApiResCallbackPlusLocType<ReqParams, RepParams>;
 
-  // ----- 1T4N3 -----
+  // ----- 4U6D7 -----
   funcWithLoc.aoikAntDesignReactStarterApiResCallbackLoc = loc;
 
   //
@@ -526,16 +517,66 @@ export type CallApiGetCallCountType = () => number;
 export type CallApiSetCallCountType = (count: number) => void;
 
 
+//
+export interface OnRepHandlerParams {
+  loc: string,
+  repInfo: any,
+  extInfo: any,
+}
+
+
+//
+export type OnRepHandler = (
+  params: OnRepHandlerParams,
+) => boolean | undefined;
+
+
 // -----
-export interface CallApiFuncParamsType<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody> {
+export function makeOnRepAuthErrGotoLoginPage(
+  loc: string,
+  loginUrl: string,
+): OnRepHandler {
+  return (
+    params: OnRepHandlerParams,
+  ) => {
+    //
+    if (params.repInfo?.base?.status !== 401) {
+      // Continue response handling.
+      return true;
+    }
+
+    // ----- 1W8H3 -----
+    toastError(
+      '1W8H3',
+      ApiResMsg.LOGIN_INVALID,
+      ApiResMsg.LOGIN_INVALID_TITLE,
+    );
+
+    // ----- 7M5V4 -----
+    gotoPath({
+      loc: `${loc}+(7M5V4)`,
+      path: loginUrl,
+    });
+
+    // ----- 1V6Z3 -----
+    throw new AbortRestError(
+      `${loc}+(1V6Z3)`,
+      ApiResMsg.LOGIN_INVALID_TITLE,
+    );
+  };
+}
+
+
+// -----
+export interface CallApiFuncParamsType<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams> {
   uri: string;
 
   method?: string;
 
   headers?: object;
 
-  body: ReqBodyType;
+  body: ReqParams;
 
   getIsMounted: CallApiGetIsMountedType;
 
@@ -549,11 +590,15 @@ export interface CallApiFuncParamsType<ReqBodyType extends ApiReqBody,
 
   onEnd?: Function;
 
-  onSuccess?: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> | boolean;
+  onSuccess?: CallApiResCallbackPlusLocType<ReqParams, RepParams> | boolean;
 
-  onFailure?: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> | boolean;
+  onFailure?: CallApiResCallbackPlusLocType<ReqParams, RepParams> | boolean;
 
-  onError?: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> | boolean;
+  onError?: CallApiResCallbackPlusLocType<ReqParams, RepParams> | boolean;
+
+  onRep?: OnRepHandler | false;
+
+  onRepAuthErrGoto?: string,
 
   errMsg?: string | object | Function;
 
@@ -564,13 +609,15 @@ export interface CallApiFuncParamsType<ReqBodyType extends ApiReqBody,
 
 
 // -----
-export interface CallApiExtInfoType<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody> extends CallApiFuncParamsType<ReqBodyType, RepBodyType> {
+export interface CallApiExtInfoType<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams> extends CallApiFuncParamsType<ReqParams, RepParams> {
   rep: Response | null;
 
   msgTitle: string;
 
   msgShown: string;
+
+  msgNoLoc: string;
 
   isAborted: boolean;
 
@@ -583,15 +630,15 @@ export interface CallApiExtInfoType<ReqBodyType extends ApiReqBody,
 
 
 // -----
-export async function callApi<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody>(
-  funcParams: CallApiFuncParamsType<ReqBodyType, RepBodyType>,
-): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
-  //
-  let cliLoc = `*@${EnvConfig.APP_LOC}-6H7J3`;
+export async function callApi<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  funcParams: CallApiFuncParamsType<ReqParams, RepParams>,
+): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> {
+  // ----- 9O7D1 -----
+  let cliLoc = `*@${CONFIG.APP_LOC}+(9O7D1)`;
 
   //
-  const extInfo = { ...funcParams } as CallApiExtInfoType<ReqBodyType, RepBodyType>;
+  const extInfo = { ...funcParams } as CallApiExtInfoType<ReqParams, RepParams>;
 
   //
   extInfo.isAborted = false;
@@ -604,8 +651,9 @@ export async function callApi<ReqBodyType extends ApiReqBody,
     //
     cliLoc = funcParams.body.base?.cliLoc;
 
-    if (typeof cliLoc !== 'string' || !cliLoc || cliLoc.length !== 5) {
-      cliLoc = `*@${EnvConfig.APP_LOC}-#2F8Y3`;
+    if (typeof cliLoc !== 'string' || !cliLoc || cliLoc.length < 5) {
+      // ----- 1Q5S6 -----
+      cliLoc = `*@${CONFIG.APP_LOC}+(1Q5S6)`;
 
       throw makeError(
         cliLoc,
@@ -614,7 +662,7 @@ export async function callApi<ReqBodyType extends ApiReqBody,
     }
 
     if (!cliLoc.startsWith('*@')) {
-      cliLoc = `*@${EnvConfig.APP_LOC}-#${cliLoc}`;
+      cliLoc = `*@${CONFIG.APP_LOC}-#${cliLoc}`;
 
       // eslint-disable-next-line no-param-reassign
       funcParams.body.base.cliLoc = cliLoc;
@@ -624,8 +672,9 @@ export async function callApi<ReqBodyType extends ApiReqBody,
     const { apiLoc } = funcParams.body.base;
 
     if (typeof apiLoc !== 'string' || !apiLoc || apiLoc.length !== 5) {
+      // ----- 8Q4E6 -----
       throw makeError(
-        '3W6E7',
+        '8Q4E6',
         'Invalid `body.apiLoc`',
       );
     }
@@ -637,8 +686,10 @@ export async function callApi<ReqBodyType extends ApiReqBody,
       if (onStartRes instanceof Promise) {
         onStartRes = await onStartRes.catch(
           (err: any) => {
+            // ----- 2U5Y9 -----
             handleError(
-              `${cliLoc}+8X1N2`,
+              cliLoc,
+              '2U5Y9',
               err,
             );
 
@@ -653,7 +704,7 @@ export async function callApi<ReqBodyType extends ApiReqBody,
     }
 
     //
-    const callRes = callApiImp<ReqBodyType, RepBodyType>(funcParams, extInfo);
+    const callRes = callApiImp<ReqParams, RepParams>(funcParams, extInfo);
 
     //
     if (!(callRes instanceof Promise) || funcParams.propErr) {
@@ -667,12 +718,21 @@ export async function callApi<ReqBodyType extends ApiReqBody,
     //
     return callRes.catch(
       (err: any) => {
+        //
+        if (err instanceof AbortRestError) {
+          //
+          throw err;
+        }
+
+        //
         if (extInfo.isAborted) {
           return [null, extInfo];
         }
-        // ----- 4W7F9 -----
+
+        // ----- 9D3E7 -----
         handleError(
-          `${cliLoc}+4W7F9`,
+          cliLoc,
+          '9D3E7',
           err,
         );
 
@@ -685,12 +745,21 @@ export async function callApi<ReqBodyType extends ApiReqBody,
     );
   }
   catch (err: any) {
+    //
+    if (err instanceof AbortRestError) {
+      //
+      throw err;
+    }
+
+    //
     if (funcParams.propErr) {
       return Promise.reject(err);
     }
 
+    // ----- 1R7Z5 -----
     handleError(
-      `${cliLoc}-5S6N8`,
+      cliLoc,
+      '1R7Z5',
       err,
     );
 
@@ -711,8 +780,16 @@ export async function callApi<ReqBodyType extends ApiReqBody,
       }
     }
     catch (err: any) {
+      //
+      if (err instanceof AbortRestError) {
+        //
+        throw err;
+      }
+
+      // ----- 2V6T4 -----
       handleError(
-        `${cliLoc}-6V8Y5`,
+        cliLoc,
+        '2V6T4',
         err,
       );
     }
@@ -721,17 +798,18 @@ export async function callApi<ReqBodyType extends ApiReqBody,
 
 
 // -----
-function callApiImp<ReqBodyType extends ApiReqBody,
-  RepBodyType extends ApiRepBody>(
-  funcParams: CallApiFuncParamsType<ReqBodyType, RepBodyType>,
-  extInfo: CallApiExtInfoType<ReqBodyType, RepBodyType>,
-): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> {
+function callApiImp<ReqParams extends ApiReqParams,
+  RepParams extends ApiRepParams>(
+  funcParams: CallApiFuncParamsType<ReqParams, RepParams>,
+  extInfo: CallApiExtInfoType<ReqParams, RepParams>,
+): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> {
   //
   let { cliLoc } = funcParams.body.base;
 
   //
   if (typeof cliLoc !== 'string') {
-    cliLoc = `*@${EnvConfig.APP_LOC}-7Y9T1`;
+    // ----- 1H5I4 -----
+    cliLoc = `*@${CONFIG.APP_LOC}+(1H5I4)`;
 
     throw makeError(
       cliLoc,
@@ -741,7 +819,8 @@ function callApiImp<ReqBodyType extends ApiReqBody,
 
   //
   if (window.fetch === undefined || window.localStorage === undefined) {
-    const fullLoc = `${cliLoc}+8T2K6`;
+    // ----- 4J7H5 -----
+    const fullLoc = `${cliLoc}+(4J7H5)`;
 
     if (funcParams.propErr) {
       return Promise.reject(fullLoc);
@@ -749,11 +828,10 @@ function callApiImp<ReqBodyType extends ApiReqBody,
 
     const errMsg = makeToastMsg(
       fullLoc,
-      'Browser version is low, please upgrade.',
-      EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+      ApiResMsg.BROWSER_VERSION_LOW,
     );
 
-    const errTitle = 'Browser version error';
+    const errTitle = ApiResMsg.BROWSER_VERSION_LOW_TITLE;
 
     Toast.error(errMsg, errTitle);
 
@@ -764,35 +842,51 @@ function callApiImp<ReqBodyType extends ApiReqBody,
   const { uri } = extInfo;
 
   if (!uri) {
+    // ----- 5Q7H6 -----
     throw makeError(
-      '9O3N1',
+      '5Q7H6',
       'uri_arg_err',
     );
   }
 
   if (!uri.startsWith('/api/')) {
+    // ----- 6Z5Y8 -----
     throw makeError(
-      '1H6D5',
+      '6Z5Y8',
       'uri_prefix_err',
     );
   }
 
   //
-  const getIsMounted = extInfo.getIsMounted;
+  let getIsMounted = extInfo.getIsMounted;
+
+  //
+  if (getIsMounted === undefined || getIsMounted === null) {
+    //
+    getIsMounted = function() {
+      return true;
+    }
+  }
 
   //
   if (!(getIsMounted instanceof Function)) {
+    // ----- 7R2S5 -----
     throw makeError(
-      '2F4V6',
+      '7R2S5',
       'getismounted_arg_err',
     );
   }
 
   //
-  let ignoreCallCount: boolean = extInfo.ignoreCallCount || false;
+  let ignoreCallCount: boolean = extInfo.ignoreCallCount || true;
 
+  //
   if ((typeof ignoreCallCount) !== 'boolean') {
-    ignoreCallCount = false;
+    // ----- 9O3E5 -----
+    throw makeError(
+      '9O3E5',
+      'ignorecallcount_arg_err',
+    );
   }
 
   //
@@ -800,8 +894,9 @@ function callApiImp<ReqBodyType extends ApiReqBody,
 
   //
   if (!ignoreCallCount && !(getCallCount instanceof Function)) {
+    // ----- 8T3Q2 -----
     throw makeError(
-      '4A9X8',
+      '8T3Q2',
       'getcallcount_arg_err',
     );
   }
@@ -811,27 +906,38 @@ function callApiImp<ReqBodyType extends ApiReqBody,
 
   //
   if (!ignoreCallCount && !(setCallCount instanceof Function)) {
+    // ----- 9X5B1 -----
     throw makeError(
-      '7C4X2',
+      '9X5B1',
       'setcallcount_arg_err',
     );
   }
 
-  //
+  // @ts-ignore
   if (!ignoreCallCount && getCallCount() !== 0) {
-    const fullLoc = `${cliLoc}+5H8J6`;
+    // ----- 1K7Y5 -----
+    const fullLoc = `${cliLoc}+(1K7Y5)`;
 
-    const errMsg = makeToastMsg(
+    //
+    const errMsg = ApiResMsg.WAIT_PREV_REQ;
+
+    //
+    const errMsgToasted = makeToastMsg(
       fullLoc,
-      'Please wait for the previous request to complete.',
-      EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+      errMsg,
     );
 
-    const errTitle = ApiResMsg.ERROR;
+    //
+    const errTitle = ApiResMsg.WAIT_PREV_REQ_TITLE;
 
-    Toast.error(errMsg, errTitle);
+    //
+    Toast.error(errMsgToasted, errTitle);
 
-    return Promise.resolve([null, extInfo]);
+    // ----- 2H3R7 -----
+    throw new AbortRestError(
+      '2H3R7',
+      errMsg,
+    );
   }
 
   //
@@ -840,6 +946,7 @@ function callApiImp<ReqBodyType extends ApiReqBody,
       return;
     }
 
+    // @ts-ignore
     setCallCount(getCallCount() + 1);
   };
 
@@ -849,48 +956,108 @@ function callApiImp<ReqBodyType extends ApiReqBody,
       return;
     }
 
+    // @ts-ignore
     const callCount = getCallCount();
 
     if (callCount <= 0) {
+      // ----- 2Y4G6 -----
       throw makeError(
-        `${loc}+6Z9N3`,
+        `${loc}+(2Y4G6)`,
         'call_count_decremented_to_negative_err',
       );
     }
 
+    // @ts-ignore
     setCallCount(callCount - 1);
   };
 
   // @ts-ignore
-  const onSuccessFunc: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> =
-      extInfo.onSuccess === false ? onSuccessDummy : (extInfo.onSuccess || onSuccessDefault);
+  let onSuccessFunc: CallApiResCallbackPlusLocType<ReqParams, RepParams>;
+
+  if (extInfo.onSuccess === false) {
+    onSuccessFunc = onSuccessDummy;
+  }
+  else if (extInfo.onSuccess === true) {
+    onSuccessFunc = onSuccessDefault;
+  }
+  else {
+    onSuccessFunc = extInfo.onSuccess || onSuccessDefault;
+  }
 
   if (typeof onSuccessFunc !== 'function') {
+    // ----- 3C7X4 -----
     throw makeError(
-      '7I8O2',
+      '3C7X4',
       'onsuccess_arg_err',
     );
   }
 
   // @ts-ignore
-  const onFailureFunc: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> =
-      extInfo.onFailure === false ? onFailureDummy : (extInfo.onFailure || onFailureDefault);
+  let onFailureFunc: CallApiResCallbackPlusLocType<ReqParams, RepParams>;
+
+  if (extInfo.onFailure === false) {
+    onFailureFunc = onFailureDummy;
+  }
+  else if (extInfo.onFailure === true) {
+    onFailureFunc = onFailureDefault;
+  }
+  else {
+    onFailureFunc = extInfo.onFailure || onFailureDefault;
+  }
 
   if (typeof onFailureFunc !== 'function') {
+    // ----- 4T1C2 -----
     throw makeError(
-      '8L7B9',
+      '4T1C2',
       'onfailure_arg_err',
     );
   }
 
   // @ts-ignore
-  const onErrorFunc: CallApiResCallbackPlusLocType<ReqBodyType, RepBodyType> =
-      extInfo.onError === false ? onErrorDummy : (extInfo.onError || onErrorDefault);
+  let onErrorFunc: CallApiResCallbackPlusLocType<ReqParams, RepParams>;
+
+  if (extInfo.onError === false) {
+    onErrorFunc = onErrorDummy;
+  }
+  else if (extInfo.onError === true) {
+    onErrorFunc = onErrorDefault;
+  }
+  else {
+    onErrorFunc = extInfo.onError || onErrorDefault;
+  }
 
   if (typeof onErrorFunc !== 'function') {
+    // ----- 5D2X6 -----
     throw makeError(
-      '9R8T6',
+      '5D2X6',
       'onerror_arg_err',
+    );
+  }
+
+  //
+  if (funcParams.onRepAuthErrGoto !== undefined && funcParams.onRepAuthErrGoto !== null) {
+    //
+    if (typeof funcParams.onRepAuthErrGoto !== 'string') {
+      // ----- 8P6D1 -----
+      throw makeError(
+        '8P6D1',
+        'onrepautherrgoto_arg_not_string_err',
+      );
+    }
+
+    //
+    if (funcParams.onRep !== undefined && funcParams.onRep !== null) {
+      // ----- 9W4Q3 -----
+      throw makeError(
+        '9W4Q3',
+        'onrep_onrepautherrgoto_coexist_err',
+      );
+    }
+
+    // ----- 1C2G7 -----
+    funcParams.onRep = makeOnRepAuthErrGotoLoginPage(
+      `${cliLoc}+(1C2G7)`,
+      funcParams.onRepAuthErrGoto,
     );
   }
 
@@ -903,11 +1070,11 @@ function callApiImp<ReqBodyType extends ApiReqBody,
   //
   headers['Content-Type'] = 'application/json';
 
-  // ----- 1U3M4 -----
+  // ----- 2D8Q7 -----
   // eslint-disable-next-line no-param-reassign
-  extInfo.body.base.apiVer = EnvConfig.API_VER;
+  extInfo.body.base.apiVer = CONFIG.API_VER;
 
-  // ----- 2C1P5 -----
+  // ----- 3V7S1 -----
   // eslint-disable-next-line no-param-reassign
   extInfo.body.base.cliTime = moment().format('YYYY-MM-DD HH:mm:ss');
 
@@ -945,7 +1112,7 @@ function callApiImp<ReqBodyType extends ApiReqBody,
 
   const timeoutHandle = setTimeout(
     () => {return controller.abort();},
-    EnvConfig.API_CALL_REQ_TIMEOUT_MS,
+    CONFIG.API_CALL_REQ_TIMEOUT_MS,
   );
 
   // eslint-disable-next-line no-param-reassign
@@ -968,7 +1135,8 @@ function callApiImp<ReqBodyType extends ApiReqBody,
 
     //
     if (!callCountIsDecremented) {
-      decrCallCount('3S9U2');
+      // ----- 6H3Z9 -----
+      decrCallCount('6H3Z9');
 
       callCountIsDecremented = true;
     }
@@ -976,10 +1144,11 @@ function callApiImp<ReqBodyType extends ApiReqBody,
     //
     return rep.json();
   }).then((
-    repInfo: RepBodyType,
-  ): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> => {
+    repInfo: RepParams,
+  ): Promise<[RepParams | null, CallApiExtInfoType<ReqParams, RepParams>]> => {
     //
     if (!getIsMounted()) {
+      //
       return Promise.resolve([null, extInfo]);
     }
 
@@ -990,7 +1159,8 @@ function callApiImp<ReqBodyType extends ApiReqBody,
     const repLoc = repInfo?.base?.loc ?? repInfo?.loc;
 
     if (!repLoc) {
-      fullLoc = `${cliLoc}+8P5E3`;
+      // ----- 9N2A1 -----
+      fullLoc = `${cliLoc}+(9N2A1)`;
     } else if (repLoc.startsWith('*')) {
       fullLoc = repLoc;
     } else if (repLoc.startsWith('/')) {
@@ -1000,23 +1170,34 @@ function callApiImp<ReqBodyType extends ApiReqBody,
     }
 
     //
-    const statusHandler = HTTP_STATUS_HANDLERS[repStatus as number];
+    const onRep = funcParams.onRep;
 
-    if (statusHandler !== undefined) {
-      const stopped = statusHandler(fullLoc);
+    //
+    if (onRep === false) {
+      return Promise.resolve([repInfo, extInfo]);
+    }
 
-      if (stopped) {
+    //
+    if (onRep !== undefined) {
+      const toContinue = onRep({
+        loc: fullLoc,
+        repInfo,
+        extInfo,
+      });
+
+      if (!toContinue) {
         // eslint-disable-next-line no-param-reassign
         extInfo.isAborted = true;
 
-        return Promise.resolve([null, extInfo]);
+        return Promise.resolve([repInfo, extInfo]);
       }
     }
 
     //
     if (!repInfo) {
+      // ----- 7K4W6 -----
       throw makeError(
-        '4H9Z3',
+        '7K4W6',
         '`rep_info_err',
       );
     }
@@ -1024,7 +1205,7 @@ function callApiImp<ReqBodyType extends ApiReqBody,
     //
     if (!((typeof extInfo.msgTimeout === 'number') && Number.isInteger(extInfo.msgTimeout))) {
       // eslint-disable-next-line no-param-reassign
-      extInfo.msgTimeout = EnvConfig.API_CALL_MSG_TIMEOUT_MS;
+      extInfo.msgTimeout = CONFIG.API_CALL_MSG_TIMEOUT_MS;
     }
 
     // -----
@@ -1036,27 +1217,26 @@ function callApiImp<ReqBodyType extends ApiReqBody,
       repStatus > ApiResStatus.HTTP_299_BIZ_FAIL
     ) {
       // eslint-disable-next-line no-param-reassign
-      extInfo.msgTitle = ApiResMsg.ERROR;
+      extInfo.msgTitle = ApiResMsg.BACKEND_PROC_ERR_TITLE;
 
       // eslint-disable-next-line no-param-reassign
-      extInfo.msgShown = getErrMsgShown<ReqBodyType, RepBodyType>(
+      extInfo.msgNoLoc = getErrMsgShown<ReqParams, RepParams>(
         repInfo,
         extInfo,
       );
 
       //
-      if (typeof extInfo.msgShown === 'string' && extInfo.msgShown) {
-        if (!extInfo.msgShown.endsWith('.')) {
+      if (typeof extInfo.msgNoLoc === 'string' && extInfo.msgNoLoc) {
+        if (!extInfo.msgNoLoc.endsWith('.')) {
           // eslint-disable-next-line no-param-reassign
-          extInfo.msgShown += '.';
+          extInfo.msgNoLoc += '.';
         }
       }
 
       // eslint-disable-next-line no-param-reassign
       extInfo.msgShown = makeToastMsg(
         fullLoc,
-        extInfo.msgShown,
-        EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+        extInfo.msgNoLoc,
       );
 
       //
@@ -1083,57 +1263,63 @@ function callApiImp<ReqBodyType extends ApiReqBody,
 
     //
     if (!repInfo.base) {
+      // ----- 1D8H5 -----
       throw makeError(
-        '9I3Q2',
+        '1D8H5',
         '`rep_info_base_err',
       );
     }
 
     //
     if (!repInfo.base.loc) {
+      // ----- 9L6Z8 -----
       throw makeError(
-        '6R9D5',
+        '9L6Z8',
         'rep_info_no_loc_err',
       );
     }
 
     //
     if (!repInfo.base.code) {
+      // ----- 1E2Q9 -----
       throw makeError(
-        '7W9I5',
+        '1E2Q9',
         'rep_info_no_code_err',
       );
     }
 
     //
     if (!repInfo.base.msg) {
+      // ----- 2Y3T8 -----
       throw makeError(
-        '8A1G4',
+        '2Y3T8',
         'rep_info_no_msg_err',
       );
     }
 
     // eslint-disable-next-line no-param-reassign
-    extInfo.msgShown = repInfo.base.msg;
+    extInfo.msgNoLoc = repInfo.base.msg;
 
     //
-    if (typeof extInfo.msgShown === 'string' && extInfo.msgShown) {
-      if (!extInfo.msgShown.endsWith('.')) {
+    if (typeof extInfo.msgNoLoc === 'string' && extInfo.msgNoLoc) {
+      if (!extInfo.msgNoLoc.endsWith('.')) {
         // eslint-disable-next-line no-param-reassign
-        extInfo.msgShown += '.';
+        extInfo.msgNoLoc += '.';
       }
     }
 
     //
+    extInfo.msgShown = extInfo.msgNoLoc;
+
+    //
     if (repStatus !== ApiResStatus.HTTP_200_BIZ_SUCC) {
       // eslint-disable-next-line no-param-reassign
-      extInfo.msgTitle = ApiResMsg.FAILURE;
+      extInfo.msgTitle = ApiResMsg.BIZ_FAIL_TITLE;
 
       // eslint-disable-next-line no-param-reassign
       extInfo.msgShown = makeToastMsg(
         fullLoc,
-        extInfo.msgShown,
-        EnvConfig.API_CALL_FAILURE_MSG_INCLUDES_LOC,
+        extInfo.msgNoLoc,
       );
 
       //
@@ -1154,14 +1340,16 @@ function callApiImp<ReqBodyType extends ApiReqBody,
     }
 
     // eslint-disable-next-line no-param-reassign
-    extInfo.msgTitle = ApiResMsg.SUCCESS;
+    extInfo.msgTitle = ApiResMsg.BIZ_SUCC_TITLE;
 
-    // eslint-disable-next-line no-param-reassign
-    extInfo.msgShown = makeToastMsg(
-      fullLoc,
-      extInfo.msgShown,
-      EnvConfig.API_CALL_SUCCESS_MSG_INCLUDES_LOC,
-    );
+    //
+    if (CONFIG.SUCCESS_TOAST_SHOW_LOC) {
+      // eslint-disable-next-line no-param-reassign
+      extInfo.msgShown = makeToastMsg(
+        fullLoc,
+        extInfo.msgNoLoc,
+      );
+    }
 
     //
     callbackLoc = onSuccessFunc.aoikAntDesignReactStarterApiResCallbackLoc;
@@ -1178,14 +1366,18 @@ function callApiImp<ReqBodyType extends ApiReqBody,
       repInfo,
       extInfo,
     );
-  }).catch((err): Promise<[RepBodyType | null, CallApiExtInfoType<ReqBodyType, RepBodyType>]> => {
+  }).catch(async (err): Promise<[
+      RepParams | null,
+    CallApiExtInfoType<ReqParams, RepParams>
+  ]> => {
     try {
       if (!getIsMounted()) {
-        return Promise.resolve([null, extInfo]);
+        return await Promise.resolve([null, extInfo]);
       }
 
       if (!callCountIsDecremented) {
-        decrCallCount('9I7C4');
+        // ----- 3R1C2 -----
+        decrCallCount('3R1C2');
 
         callCountIsDecremented = true;
       }
@@ -1194,47 +1386,56 @@ function callApiImp<ReqBodyType extends ApiReqBody,
       if (err instanceof SyntaxError) {
         // If has response.
         if (extInfo.rep) {
-          const fullLoc = `${cliLoc}+1N2H5`;
+          // ----- 4W2U1 -----
+          const fullLoc = `${cliLoc}+(4W2U1)`;
 
-          const errMsg = extInfo?.rep?.status === ApiResStatus.HTTP_200_BIZ_SUCC
-            ? 'Response format error' : getErrMsgShown(
+          // eslint-disable-next-line no-param-reassign
+          extInfo.msgTitle = ApiResMsg.BACKEND_PROC_ERR_TITLE;
+
+          extInfo.msgNoLoc = extInfo?.rep?.status === ApiResStatus.HTTP_200_BIZ_SUCC
+            ? ApiResMsg.REP_FMT_ERR : getErrMsgShown(
               null,
               extInfo,
             );
 
-          const msgShown = makeToastMsg(
+          // eslint-disable-next-line no-param-reassign
+          extInfo.msgShown = makeToastMsg(
             fullLoc,
-            errMsg,
-            EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+            extInfo.msgNoLoc,
           );
 
-          const msgTitle = ApiResMsg.ERROR;
+          //
+          await onErrorFunc(
+            // @ts-ignore
+            null,
+            extInfo,
+          );
 
-          Toast.error(msgShown, msgTitle);
-
-          return Promise.resolve([null, extInfo]);
+          //
+          return await Promise.resolve([null, extInfo]);
         }
       }
     }
     catch (err2) {
-      const loc = '2F6Y1';
-
-      const fullLoc = callbackLoc ? `${cliLoc}+${callbackLoc}+${loc}` : `*${cliLoc}+${loc}`;
-
       //
+      const loc = callbackLoc ? `*${cliLoc}+(${callbackLoc})` : `*${cliLoc}`;
+
+      // ----- 5X1L8 -----
       handleError(
-        fullLoc,
+        loc,
+        '5X1L8',
         err2,
       );
     }
 
-    // To be handled at 5S6N8.
+    // To be handled at 9D3E7.
     return Promise.reject(err);
   }).finally(() => {
     try {
       //
       if (!callCountIsDecremented) {
-        decrCallCount('3R2Q4');
+        // ----- 6X1C3 -----
+        decrCallCount('6X1C3');
 
         callCountIsDecremented = true;
       }
@@ -1244,19 +1445,12 @@ function callApiImp<ReqBodyType extends ApiReqBody,
     }
     catch (err: any) {
       //
-      let loc = '4P1W3';
+      const loc = callbackLoc ? `*${cliLoc}+(${callbackLoc})` : `*${cliLoc}`;
 
-      if (callbackLoc) {
-        loc = `${callbackLoc}+${loc}`;
-      }
-
-      if (cliLoc) {
-        loc = `${cliLoc}+${loc}`;
-      }
-
-      //
+      // ----- 7C3O9 -----
       handleError(
         loc,
+        '7C3O9',
         err,
       );
     }
@@ -1267,47 +1461,43 @@ function callApiImp<ReqBodyType extends ApiReqBody,
 // -----
 function handleError(
   loc: string,
+  handleLoc: string,
   err: any,
 ): void {
   //
-  Logger.error(`${loc}: Caught Error`, err);
+  Logger.error(`${loc}+(${handleLoc}): Caught Error`, err);
 
   //
   if (err.name === 'AbortError') {
-    const fullLoc = `${loc}+5R9Y7`;
+    // ----- 8M2J6 -----
+    const fullLoc = `${loc}+(${handleLoc})+(8M2J6)`;
 
     const msgShown = makeToastMsg(
       fullLoc,
-      'Network request timeout.',
-      EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+      ApiResMsg.REQ_TIMEOUT,
     );
 
-    const msgTitle = ApiResMsg.ERROR;
+    const msgTitle = ApiResMsg.REQ_TIMEOUT_TITLE;
 
     Toast.error(msgShown, msgTitle);
 
     return undefined;
   }
 
+  // ----- 9J7M4 -----
+  // `9J7M4` means non-BaseError.
+  const errLoc = err instanceof BaseError ? err.getLoc() : '9J7M4';
+
   //
-  let errLoc = err instanceof BaseError ? err.getLoc() : '';
-
-  if (typeof errLoc === 'string') {
-    if (errLoc && loc.startsWith(errLoc)) {
-      errLoc = '';
-    }
-  }
-
-  const fullLoc = loc + (errLoc ? `+${errLoc}` : '');
+  const fullLoc = `${loc}+(${errLoc})+(${handleLoc})`;
 
   //
   const errMsg = makeToastMsg(
     fullLoc,
-    'Frontend error.',
-    EnvConfig.API_CALL_ERROR_MSG_INCLUDES_LOC,
+    ApiResMsg.FRONTEND_PROC_ERR,
   );
 
-  const errTitle = ApiResMsg.ERROR;
+  const errTitle = ApiResMsg.FRONTEND_PROC_ERR_TITLE;
 
   //
   Toast.error(errMsg, errTitle);
@@ -1329,8 +1519,16 @@ export function makeSafeFunc(
       if (callRes instanceof Promise) {
         return callRes.catch(
           (err: any) => {
+            //
+            if (err instanceof AbortRestError) {
+              //
+              return;
+            }
+
+            // ----- 9D1P6 -----
             handleError(
-              `${loc}+6X8G1`,
+              loc,
+              '9D1P6',
               err,
             );
           },
@@ -1340,12 +1538,21 @@ export function makeSafeFunc(
       return callRes;
     }
     catch (err: any) {
+      //
+      if (err instanceof AbortRestError) {
+        //
+        return;
+      }
+
+      // ----- 1U3J2 -----
       handleError(
-        `${loc}+'7I3S9'`,
+        loc,
+        '1U3J2',
         err,
       );
 
-      return undefined;
+      //
+      return;
     }
   };
 }
