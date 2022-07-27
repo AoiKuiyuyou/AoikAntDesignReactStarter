@@ -19,8 +19,8 @@ import { MakeGetIsMountedType } from '@/config/umi_config';
 import { UmiLayoutConfig } from '@/config/umi_layout_config';
 import { PageFooterComp } from '@/pages/base/PageFooterComp';
 import { PageHeaderComp } from '@/pages/base/PageHeaderComp';
-import { ApiUserGetAuthInfoRepBody } from '@/pages/user/login/api';
-import { ApiUserGetAuthInfoReqBody } from '@/pages/user/login/api';
+import { ApiUserGetAuthInfoRepParams } from '@/pages/user/login/api';
+import { ApiUserGetAuthInfoReqParams } from '@/pages/user/login/api';
 
 
 // ----- 4U7G9 -----
@@ -65,9 +65,9 @@ async function getInitialState(): Promise<InitialStateType>
   }
 
   //
-  const [repBody, repExt] = await callApi<
-    ApiUserGetAuthInfoReqBody,
-    ApiUserGetAuthInfoRepBody>({
+  const [repParams, repExt] = await callApi<
+    ApiUserGetAuthInfoReqParams,
+    ApiUserGetAuthInfoRepParams>({
       uri: ApiPath.API_USER_GET_AUTH_INFO,
       body: {
         base: {
@@ -87,7 +87,7 @@ async function getInitialState(): Promise<InitialStateType>
     });
 
   //
-  const authInfo = (repExt.isSuccess ? repBody?.biz : null) ?? null;
+  const authInfo = (repExt.isSuccess ? repParams?.biz : null) ?? null;
 
   //
   return {

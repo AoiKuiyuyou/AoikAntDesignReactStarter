@@ -22,8 +22,8 @@ import { gotoPath } from '@/base/cli';
 import { ApiPath } from '@/config/api_config';
 import { CliPath } from '@/config/cli_config';
 import { InitialStateModelType } from '@/config/umi_config';
-import { ApiUserLogoutRepBody } from '@/pages/user/login/api';
-import { ApiUserLogoutReqBody } from '@/pages/user/login/api';
+import { ApiUserLogoutRepParams } from '@/pages/user/login/api';
+import { ApiUserLogoutReqParams } from '@/pages/user/login/api';
 
 import styles from './PageHeaderComp.less';
 
@@ -120,8 +120,8 @@ const PageHeaderComp: React.FC = () => {
 
           //
           await callApi<
-            ApiUserLogoutReqBody,
-            ApiUserLogoutRepBody>({
+            ApiUserLogoutReqParams,
+            ApiUserLogoutRepParams>({
               uri: ApiPath.API_USER_LOGOUT,
               body: {
                 base: {

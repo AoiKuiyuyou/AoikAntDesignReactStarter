@@ -2,8 +2,8 @@
 
 
 // -----
-import { ApiRepBody } from '@/base/api';
-import { ApiReqBody } from '@/base/api';
+import { ApiRepParams } from '@/base/api';
+import { ApiReqParams } from '@/base/api';
 
 
 // -----
@@ -15,7 +15,7 @@ export interface ApiUserLoginReqBiz {
 
 
 // -----
-export interface ApiUserLoginReqBody extends ApiReqBody {
+export interface ApiUserLoginReqParams extends ApiReqParams {
   biz: ApiUserLoginReqBiz,
 }
 
@@ -26,7 +26,7 @@ export interface ApiUserLoginRepBiz {
 
 
 // -----
-export interface ApiUserLoginRepBody extends ApiRepBody {
+export interface ApiUserLoginRepParams extends ApiRepParams {
   biz: ApiUserLoginRepBiz,
 }
 
@@ -37,7 +37,7 @@ export interface ApiUserLogoutReqBiz {
 
 
 // -----
-export interface ApiUserLogoutReqBody extends ApiReqBody {
+export interface ApiUserLogoutReqParams extends ApiReqParams {
   biz: ApiUserLogoutReqBiz,
 }
 
@@ -48,7 +48,7 @@ export interface ApiUserLogoutRepBiz {
 
 
 // -----
-export interface ApiUserLogoutRepBody extends ApiRepBody {
+export interface ApiUserLogoutRepParams extends ApiRepParams {
   biz: ApiUserLogoutRepBiz,
 }
 
@@ -59,7 +59,7 @@ export interface ApiUserGetAuthInfoReqBiz {
 
 
 // -----
-export interface ApiUserGetAuthInfoReqBody extends ApiReqBody {
+export interface ApiUserGetAuthInfoReqParams extends ApiReqParams {
   biz: ApiUserGetAuthInfoReqBiz,
 }
 
@@ -71,6 +71,6 @@ export interface ApiUserGetAuthInfoRepBiz {
 
 
 // -----
-export interface ApiUserGetAuthInfoRepBody extends ApiRepBody {
+export interface ApiUserGetAuthInfoRepParams extends ApiRepParams {
   biz: ApiUserGetAuthInfoRepBiz,
 }

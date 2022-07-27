@@ -23,10 +23,10 @@ import { CliPath } from '@/config/cli_config';
 import { EnvConfig } from '@/config/env_config';
 import { InitialStateModelType } from '@/config/umi_config';
 import { PageFooterComp } from '@/pages/base/PageFooterComp';
-import { ApiUserGetAuthInfoRepBody, ApiUserLoginReqBiz } from '@/pages/user/login/api';
-import { ApiUserGetAuthInfoReqBody } from '@/pages/user/login/api';
-import { ApiUserLoginRepBody } from '@/pages/user/login/api';
-import { ApiUserLoginReqBody } from '@/pages/user/login/api';
+import { ApiUserGetAuthInfoRepParams, ApiUserLoginReqBiz } from '@/pages/user/login/api';
+import { ApiUserGetAuthInfoReqParams } from '@/pages/user/login/api';
+import { ApiUserLoginRepParams } from '@/pages/user/login/api';
+import { ApiUserLoginReqParams } from '@/pages/user/login/api';
 
 import styles from './UserLoginComp.less';
 
@@ -119,8 +119,8 @@ const UserLoginComp: React.FC = () => {
 
       // ----- 9P1O6 -----
       const [, repExt] = await callApi<
-        ApiUserLoginReqBody,
-        ApiUserLoginRepBody>({
+        ApiUserLoginReqParams,
+        ApiUserLoginRepParams>({
           uri: ApiPath.API_USER_LOGIN,
           body: {
             base: {
@@ -152,9 +152,9 @@ const UserLoginComp: React.FC = () => {
       }
 
       // ----- 9P1O6 -----
-      const [repBody2, repExt2] = await callApi<
-          ApiUserGetAuthInfoReqBody,
-          ApiUserGetAuthInfoRepBody>({
+      const [repParams2, repExt2] = await callApi<
+          ApiUserGetAuthInfoReqParams,
+          ApiUserGetAuthInfoRepParams>({
             uri: ApiPath.API_USER_GET_AUTH_INFO,
             body: {
               base: {
@@ -175,9 +175,9 @@ const UserLoginComp: React.FC = () => {
       }
 
       //
-      if (repBody2?.biz) {
+      if (repParams2?.biz) {
         //
-        initialState.authInfo = repBody2.biz;
+        initialState.authInfo = repParams2.biz;
 
         // ----- 3X1V8 -----
         gotoPath({
