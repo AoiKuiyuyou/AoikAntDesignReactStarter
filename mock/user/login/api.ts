@@ -7,7 +7,6 @@ import { Response } from 'express';
 
 // Must use relative path. `@/` will cause import error.
 import { ApiResCode } from '../../../src/base/api';
-import { ApiResDebugMsg } from '../../../src/base/api';
 import { ApiResMsg } from '../../../src/base/api';
 import { ApiResStatus } from '../../../src/base/api';
 import { ApiPath } from '../../../src/config/api_config';
@@ -27,7 +26,6 @@ export default {
           code: ApiResCode.BIZ_SUCC,
           status: ApiResStatus.HTTP_200_BIZ_SUCC,
           msg: ApiResMsg.LOGIN_SUCC,
-          debugMsg: ApiResDebugMsg.EMPTY,
         },
         biz: {},
       });
@@ -40,7 +38,6 @@ export default {
           code: ApiResCode.BIZ_FAIL,
           status: ApiResStatus.HTTP_299_BIZ_FAIL,
           msg: ApiResMsg.LOGIN_FAIL,
-          debugMsg: ApiResDebugMsg.EMPTY,
         },
         biz: {},
       });
@@ -56,7 +53,6 @@ export default {
         status: ApiResStatus.HTTP_200_BIZ_SUCC,
         code: ApiResCode.BIZ_SUCC,
         msg: ApiResMsg.LOGOUT_SUCC,
-        debugMsg: ApiResDebugMsg.EMPTY,
       },
       biz: {},
     });
@@ -71,7 +67,6 @@ export default {
         status: ApiResStatus.HTTP_200_BIZ_SUCC,
         code: ApiResCode.BIZ_SUCC,
         msg: ApiResMsg.SUCCESS,
-        debugMsg: ApiResDebugMsg.EMPTY,
       },
       biz: {
         username: 'DemoUser',
