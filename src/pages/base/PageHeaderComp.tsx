@@ -81,16 +81,8 @@ const PageHeaderComp: React.FC = () => {
 
   //
   const {
-    makeGetIsMounted,
-    makeGetSetCallCount,
     makeGetText,
   } = initialState;
-
-  //
-  const getIsMounted = makeGetIsMounted(useIsMounted());
-
-  //
-  const [getCallCount, setCallCount] = makeGetSetCallCount();
 
   //
   const TT = makeGetText(useIntl());
@@ -130,9 +122,6 @@ const PageHeaderComp: React.FC = () => {
                 },
                 biz: {},
               },
-              getIsMounted,
-              getCallCount,
-              setCallCount,
             });
 
           //

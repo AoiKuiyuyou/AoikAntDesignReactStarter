@@ -49,16 +49,8 @@ const UserLoginComp: React.FC = () => {
 
   //
   const {
-    makeGetIsMounted,
-    makeGetSetCallCount,
     makeGetText,
   } = initialState;
-
-  //
-  const getIsMounted = makeGetIsMounted(useIsMounted());
-
-  //
-  const [getCallCount, setCallCount] = makeGetSetCallCount();
 
   //
   const TT = makeGetText(useIntl());
@@ -129,9 +121,6 @@ const UserLoginComp: React.FC = () => {
             },
             biz: reqBiz,
           },
-          getIsMounted,
-          getCallCount,
-          setCallCount,
           onStart: makeSafeFunc(
             '6P5T1',
             () => {
@@ -163,9 +152,6 @@ const UserLoginComp: React.FC = () => {
               },
               biz: {},
             },
-            getIsMounted,
-            getCallCount,
-            setCallCount,
             onSuccess: false,
           });
 

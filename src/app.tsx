@@ -36,9 +36,6 @@ async function getInitialState(): Promise<InitialStateType>
   };
 
   //
-  const [getCallCount, setCallCount] = makeGetSetCallCount();
-
-  //
   const getGetText = (intl: IntlShape) => {
     const { formatMessage } = intl;
 
@@ -57,8 +54,8 @@ async function getInitialState(): Promise<InitialStateType>
   if (history.location.pathname === CliPath.USER_LOGIN) {
     return {
       authInfo: null,
-      makeGetSetCallCount,
       makeGetIsMounted,
+      makeGetSetCallCount,
       makeGetText: getGetText,
       settings: UmiLayoutConfig,
     };
@@ -76,11 +73,6 @@ async function getInitialState(): Promise<InitialStateType>
         },
         biz: {},
       },
-      getIsMounted: () => {
-        return true;
-      },
-      getCallCount,
-      setCallCount,
       onSuccess: false,
       onFailure: false,
       onError: false,
