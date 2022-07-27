@@ -2,7 +2,7 @@
 
 
 // -----
-class BaseError extends Error {
+export class BaseError extends Error {
   loc: string;
 
   msg: string;
@@ -42,7 +42,7 @@ class BaseError extends Error {
 
 
 // -----
-function makeError(
+export function makeError(
   loc: string,
   msg: string,
   srcError: Error | null = null,
@@ -56,7 +56,5 @@ function makeError(
 
 
 // -----
-export {
-  BaseError,
-  makeError,
-};
+export class AbortRestError extends BaseError {
+}
